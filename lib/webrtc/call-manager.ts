@@ -246,9 +246,11 @@ export class AudioCallManager {
     onIncomingCallCallback: (invitation: IncomingCallInvitation) => void
   ): Promise<void> {
     const pairedPartner = await getPairedPartner();
-    if (pairedPartner) {
-      this.coupleId = (pairedPartner as any).coupleId || pairedPartner.id || "partner_trust";
+    if (!pairedPartner) {
+      return;
     }
+    this.coupleId = (pairedPartner as any).coupleId || pairedPartner.id;
+    if (!this.coupleId) return;
 
     this.supabaseSignaling = new SupabaseSignalingClient(this.coupleId, this.localUserId, {
       onCallInvite: (payload) => {

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Outfit, Caveat } from "next/font/google";
 import "./globals.css";
 import { SWRegister } from "@/components/between-us/SWRegister";
+import { ErrorBoundary } from "@/components/between-us/ErrorBoundary";
 
 const outfit = Outfit({
   subsets: ["latin"],
@@ -58,12 +59,13 @@ export default function RootLayout({
   return (
     <html lang="en" className={`dark ${outfit.variable} ${caveat.variable}`}>
       <body className="antialiased bg-[#060B14] text-gray-100 font-outfit selection:bg-teal-500 selection:text-white min-h-screen">
-        <main className="min-h-screen flex flex-col items-center justify-center">
-          {children}
-        </main>
-        <SWRegister />
+        <ErrorBoundary>
+          <main className="min-h-screen flex flex-col items-center justify-center">
+            {children}
+          </main>
+          <SWRegister />
+        </ErrorBoundary>
       </body>
     </html>
   );
 }
-

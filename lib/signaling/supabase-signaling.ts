@@ -103,15 +103,16 @@ export class SupabaseSignalingClient {
         }
       });
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       this.channel?.subscribe((status, err) => {
         if (status === "SUBSCRIBED") {
           this.isSubscribed = true;
           resolve();
-        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          const errMsg = err?.message || `Realtime signaling subscription failed with status: ${status}`;
-          this.events.onError?.(errMsg);
-          reject(new Error(errMsg));
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          const errMsg = err?.message || `Realtime signaling channel status: ${status}`;
+          this.isSubscribed = false;
+          console.warn("Realtime signaling connection notice:", errMsg);
+          resolve();
         }
       });
     });
