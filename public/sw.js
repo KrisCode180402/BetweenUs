@@ -1,27 +1,19 @@
 /* eslint-disable no-restricted-globals */
 /**
  * Between Us — Service Worker
- * Phase 07: PWA / Installable Application
- * 
- * SECURITY ARCHITECTURE INVARIANTS:
- * - Cache ONLY safe static application shell assets.
- * - ZERO caching of WebRTC, audio/video, SDP, ICE candidates, signaling, pairing secrets, or keys.
- * - NETWORK-ONLY for all dynamic, real-time, signaling, TURN, or stateful requests.
- * - NO offline queues for calls, audio, video, signaling, or pairing.
+ * Robust PWA Service Worker for Next.js App Router on Vercel
  */
 
 const CACHE_NAME = 'between-us-static-v1';
 
-// Static application shell resources safe for offline pre-caching
 const STATIC_ASSETS = [
-  '/',
   '/manifest.json',
   '/icons/icon-192x192.png',
   '/icons/icon-512x512.png',
   '/icons/maskable-icon-512x512.png',
 ];
 
-// Install event: Pre-cache safe static application shell
+// Install event: Pre-cache static icons & manifest
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
@@ -32,13 +24,13 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// Activate event: Remove old/obsolete caches
+// Activate event: Purge outdated caches & claim clients immediately
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames
-          .filter((name) => name.startsWith('between-us-') && name !== CACHE_NAME)
+          .filter((name) => name !== CACHE_NAME)
           .map((name) => caches.delete(name))
       );
     }).then(() => {
@@ -47,86 +39,43 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch event: Network-First for navigation, Cache-First for static assets, Network-Only for signaling/TURN/APIs
+// Fetch event: Network-First for HTML/Next.js, Network-Only for APIs/Supabase/Signaling/TURN
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // 1. NON-GET requests are strictly Network-Only (NEVER cached)
-  if (request.method !== 'GET') {
-    return;
-  }
+  // 1. Non-GET requests bypass SW
+  if (request.method !== 'GET') return;
 
-  // 2. WebSocket / Signaling / TURN / Development / Third-Party / Sensitive Endpoints bypass cache completely
+  // 2. Bypass SW for Next.js assets, APIs, Supabase, WebSockets, wss:, turn, Vercel internal routes
   if (
-    url.hostname === 'localhost' ||
-    url.hostname === '127.0.0.1' ||
+    url.pathname.startsWith('/_next/') ||
+    url.pathname.startsWith('/api/') ||
+    url.hostname.includes('supabase') ||
+    url.hostname.includes('vercel') ||
+    url.hostname.includes('turn') ||
     url.protocol === 'ws:' ||
     url.protocol === 'wss:' ||
-    url.hostname.includes('turn') ||
-    url.hostname.includes('signaling') ||
-    url.pathname.startsWith('/api/') ||
     url.origin !== self.location.origin
   ) {
     return;
   }
 
-  // 3. Navigation requests (App Shell loading): Network-First, fallback to cached '/' if offline
-  if (request.mode === 'navigate') {
+  // 3. For icons and manifest, use Cache-First
+  if (STATIC_ASSETS.includes(url.pathname)) {
     event.respondWith(
-      fetch(request)
-        .then((response) => {
-          // Verify response is valid before caching app shell
-          if (response && response.status === 200 && response.type === 'basic') {
-            const responseToCache = response.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(request, responseToCache);
-            });
-          }
-          return response;
-        })
-        .catch(() => {
-          // Return cached safe home shell when offline
-          return caches.match('/');
-        })
-    );
-    return;
-  }
-
-  // 4. Immutable build assets and static assets: Cache-First, fallback to network
-  if (
-    url.pathname.startsWith('/_next/static/') ||
-    url.pathname.startsWith('/icons/') ||
-    STATIC_ASSETS.includes(url.pathname)
-  ) {
-    event.respondWith(
-      caches.match(request).then((cachedResponse) => {
-        if (cachedResponse) {
-          return cachedResponse;
-        }
-        return fetch(request).then((networkResponse) => {
-          if (
-            networkResponse &&
-            networkResponse.status === 200 &&
-            networkResponse.type === 'basic'
-          ) {
-            const responseToCache = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(request, responseToCache);
-            });
-          }
-          return networkResponse;
-        });
+      caches.match(request).then((cached) => {
+        return cached || fetch(request);
       })
     );
     return;
   }
 
-  // 5. Default fetch behavior: Network-Only for uncategorized dynamic requests
-  event.respondWith(fetch(request));
+  // 4. Default: Network-Only for dynamic navigation & page loads
+  return;
 });
 
-// Listener for update messages from client
+// Skip waiting signal
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();

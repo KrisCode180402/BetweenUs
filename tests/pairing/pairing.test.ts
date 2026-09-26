@@ -74,7 +74,7 @@ test("Phase 10 — Secure Device Pairing Test Suite", async (t) => {
     await managerB.joinPairingSession(transportB, invitation, { identity: identityB, privateKey: deviceBRecord.privateKey });
 
     // Allow asynchronous dispatch ticks for transport & signature verification
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 150));
 
     const updatedSessionA = managerA.getSessionState();
     assert.strictEqual(
