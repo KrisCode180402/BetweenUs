@@ -12,7 +12,6 @@ import { CallState, CallType, IncomingCallInvitation } from "@/lib/webrtc/types"
 import { privacyModeManager } from "@/lib/privacy/privacy-mode";
 
 export default function BetweenUsApp() {
-  const [isMounted, setIsMounted] = useState(false);
   const [callState, setCallState] = useState<CallState>(CallState.IDLE);
   const [callType, setCallType] = useState<CallType>("audio");
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
@@ -24,11 +23,6 @@ export default function BetweenUsApp() {
   const [incomingCall, setIncomingCall] = useState<IncomingCallInvitation | null>(null);
 
   const callManagerRef = useRef<AudioCallManager | null>(null);
-
-  // Mark client hydration complete
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
 
   const initializeCallManager = useCallback(() => {
     if (!callManagerRef.current) {
@@ -68,10 +62,8 @@ export default function BetweenUsApp() {
     return callManagerRef.current;
   }, []);
 
-  // Listen for incoming call invitations ONLY after client mounting
+  // Listen for incoming call invitations on client mount
   useEffect(() => {
-    if (!isMounted) return;
-
     try {
       const manager = initializeCallManager();
       manager.listenForIncomingCall((invitation) => {
@@ -95,7 +87,7 @@ export default function BetweenUsApp() {
         callManagerRef.current.endCall();
       }
     };
-  }, [isMounted, initializeCallManager]);
+  }, [initializeCallManager]);
 
   const handleStartAudioCall = async () => {
     privacyModeManager.reset();
@@ -221,17 +213,6 @@ export default function BetweenUsApp() {
     callState === CallState.CONNECTED ||
     callState === CallState.RECONNECTING ||
     callState === CallState.ENDING;
-
-  // Loading Shell during initial SSR hydration
-  if (!isMounted) {
-    return (
-      <div className="w-full flex flex-col items-center justify-center min-h-[90vh] py-4 px-2 sm:px-4 bg-[#060B14]">
-        <div className="w-full max-w-lg min-h-[92vh] mx-auto flex items-center justify-center p-8 bg-[#060B14] rounded-[2.5rem] border border-slate-800/80">
-          <div className="w-8 h-8 rounded-full border-2 border-teal-500 border-t-transparent animate-spin" />
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="w-full flex flex-col items-center justify-center min-h-[90vh] py-4 px-2 sm:px-4">
