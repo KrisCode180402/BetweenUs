@@ -168,10 +168,16 @@ export function subscribeToPairingSession(
         }
       }
     )
-    .subscribe();
+    .subscribe((status, err) => {
+      if (status === "CHANNEL_ERROR" || status === "CLOSED") {
+        console.warn(`Pairing session channel ${sessionId} notice:`, err?.message || status);
+      }
+    });
 
   return () => {
-    supabase.removeChannel(channel);
+    try {
+      supabase.removeChannel(channel);
+    } catch {}
   };
 }
 
@@ -365,10 +371,16 @@ export function subscribeToPairingResponse(
         }
       }
     )
-    .subscribe();
+    .subscribe((status, err) => {
+      if (status === "CHANNEL_ERROR" || status === "CLOSED") {
+        console.warn(`Pairing response channel ${sessionId} notice:`, err?.message || status);
+      }
+    });
 
   return () => {
-    supabase.removeChannel(channel);
+    try {
+      supabase.removeChannel(channel);
+    } catch {}
   };
 }
 
