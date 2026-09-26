@@ -7,16 +7,17 @@ const supabaseAnonKey =
 
 /**
  * Singleton Supabase Client Instance.
- * Used for authentication verification and ephemeral Realtime signaling channels.
+ * Hardened for device-based identity without session auth overhead.
  */
 export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistSession: true,
-    autoRefreshToken: true,
+    persistSession: false,
+    autoRefreshToken: false,
+    detectSessionInUrl: false,
   },
   realtime: {
     params: {
-      eventsPerSecond: 20,
+      eventsPerSecond: 10,
     },
   },
 });
