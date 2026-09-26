@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+@layer utilities {
+  .font-script {
+    font-family: var(--font-script), 'Caveat', cursive, sans-serif;
+  }
+  .font-outfit {
+    font-family: var(--font-outfit), 'Outfit', sans-serif;
+  }
+  .glow-emerald {
+    box-shadow: 0 0 30px -5px rgba(16, 185, 129, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.4);
+  }
+  .glow-blue {
+    box-shadow: 0 0 30px -5px rgba(59, 130, 246, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.4);
+  }
+  .glow-emerald-card {
+    box-shadow: 0 0 40px -10px rgba(16, 185, 129, 0.25);
+  }
+  .glow-blue-card {
+    box-shadow: 0 0 40px -10px rgba(59, 130, 246, 0.25);
+  }
+}
+
+@layer base {
+  :root {
+    --background: #060B14;
+    --foreground: #f3f4f6;
+  }
+
+  body {
+    background-color: #060B14;
+    color: #f3f4f6;
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.03); }
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 4s ease-in-out infinite;
+}

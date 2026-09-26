@@ -1,0 +1,24 @@
+# Code Ownership Security Policy for Between Us
+# Security-sensitive modules require mandatory review.
+
+*                   @KrisCode180402
+
+# Cryptographic Identity & Signing Primitives
+/lib/crypto/        @KrisCode180402
+
+# Ephemeral Signaling Architecture
+/lib/signaling/     @KrisCode180402
+/server/signaling/  @KrisCode180402
+
+# WebRTC PeerConnection Engine & Teardown
+/lib/webrtc/        @KrisCode180402
+
+# Privacy Mode & Zero Retention Managers
+/lib/privacy/       @KrisCode180402
+
+# Safety Fingerprint Verification
+/lib/safety/        @KrisCode180402
+
+# Infrastructure & CI/CD Pipelines
+/.github/           @KrisCode180402
+/docs/security/     @KrisCode180402
