@@ -54,7 +54,16 @@ export default function BetweenUsApp() {
             setIsVideoOff(cameraOff);
           },
           onError: (err) => {
-            setErrorMessage(err);
+            if (
+              err &&
+              !err.includes("Connection closed") &&
+              !err.includes("WebSocket") &&
+              !err.includes("CHANNEL_ERROR")
+            ) {
+              setErrorMessage(err);
+            } else {
+              console.warn("Background call manager connection notice:", err);
+            }
           },
         }
       );

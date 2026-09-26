@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { Brand } from "./Brand";
 import { CallButton } from "./CallButton";
 import { PairingSection } from "./PairingSection";
@@ -14,6 +14,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onInitiateVideoCall,
 }) => {
   const [isPaired, setIsPaired] = useState<boolean>(false);
+
+  const handlePairingStatusChange = useCallback((paired: boolean) => {
+    setIsPaired(paired);
+  }, []);
 
   return (
     <div className="relative w-full max-w-lg min-h-[92vh] mx-auto flex flex-col justify-between p-6 sm:p-8 bg-[#060B14] text-white overflow-hidden rounded-[2.5rem] border border-slate-800/80 shadow-2xl">
@@ -58,7 +62,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         </div>
 
         {/* Real Device Pairing UI */}
-        <PairingSection onPairingStatusChange={(paired) => setIsPaired(paired)} />
+        <PairingSection onPairingStatusChange={handlePairingStatusChange} />
 
         {/* 2-Column Calling Action Buttons (Enabled ONLY when paired) */}
         {isPaired && (

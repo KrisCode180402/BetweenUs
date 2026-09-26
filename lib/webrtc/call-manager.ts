@@ -163,7 +163,11 @@ export class AudioCallManager {
         this.endCall();
       },
       onError: (err) => {
-        this.handleFailure(err);
+        if (this.stateMachine.getState() !== CallState.IDLE) {
+          this.handleFailure(err);
+        } else {
+          console.warn("Background signaling connection notice while idle:", err);
+        }
       },
     });
 
@@ -290,7 +294,11 @@ export class AudioCallManager {
         this.endCall();
       },
       onError: (err) => {
-        this.handleFailure(err);
+        if (this.stateMachine.getState() !== CallState.IDLE) {
+          this.handleFailure(err);
+        } else {
+          console.warn("Background signaling connection notice while listening:", err);
+        }
       },
     });
 

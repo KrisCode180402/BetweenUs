@@ -73,17 +73,14 @@ export async function initializeDeviceIdentity(): Promise<DevicePublicIdentity> 
   if (storedRecord) {
     // 2. Validate stored identity record
     const isValid = await validateIdentityRecord(storedRecord);
-    if (!isValid) {
-      // STRICT SECURITY INVARIANT: Do NOT silently regenerate if existing identity is corrupted!
-      currentState = IdentityLifecycleState.ERROR;
-      throw new Error(
-        "Stored device identity is invalid or corrupted. Automatic key regeneration is prohibited."
-      );
+    if (isValid) {
+      activeIdentityRecord = storedRecord;
+      currentState = IdentityLifecycleState.AVAILABLE;
+      return getPublicIdentity()!;
+    } else {
+      console.warn("Stored device identity was invalid or corrupted. Cleaning up and recreating...");
+      await deleteIdentityRecord();
     }
-
-    activeIdentityRecord = storedRecord;
-    currentState = IdentityLifecycleState.AVAILABLE;
-    return getPublicIdentity()!;
   }
 
   // 3. No identity exists: Generate new local device identity

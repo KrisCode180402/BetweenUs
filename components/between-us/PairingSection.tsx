@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   createPairingSession,
   submitPairingCode,
@@ -32,6 +32,11 @@ export const PairingSection: React.FC<PairingSectionProps> = ({
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [copied, setCopied] = useState<boolean>(false);
 
+  const onPairingStatusChangeRef = useRef(onPairingStatusChange);
+  useEffect(() => {
+    onPairingStatusChangeRef.current = onPairingStatusChange;
+  }, [onPairingStatusChange]);
+
   // Load existing device identity & paired partner on mount
   useEffect(() => {
     async function init() {
@@ -43,16 +48,16 @@ export const PairingSection: React.FC<PairingSectionProps> = ({
         const partner = await loadPairedPartner();
         if (partner) {
           setPartnerRecord(partner);
-          onPairingStatusChange?.(true);
+          onPairingStatusChangeRef.current?.(true);
         } else {
-          onPairingStatusChange?.(false);
+          onPairingStatusChangeRef.current?.(false);
         }
       } catch (err: any) {
         console.warn("Pairing init error:", err);
       }
     }
     init();
-  }, [onPairingStatusChange]);
+  }, []);
 
   // Handle generating a new pairing code (Device A)
   const handleGenerateCode = async (): Promise<void> => {
