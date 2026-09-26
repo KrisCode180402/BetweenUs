@@ -45,20 +45,22 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   public static getDerivedStateFromError(error: Error): State {
-    // If the error is a transient WebSocket connection close, do not show error fallback UI
+    return { hasError: true, error };
+  }
+
+  public override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("Uncaught Error Boundary caught error:", error, errorInfo);
     const msg = String(error?.message || "");
     if (
       msg.includes("Connection closed") ||
       msg.includes("WebSocket") ||
       msg.includes("CHANNEL_ERROR")
     ) {
-      return { hasError: false, error: null };
+      // Auto recover from transient connection disconnects without leaving blank screen
+      setTimeout(() => {
+        this.setState({ hasError: false, error: null });
+      }, 100);
     }
-    return { hasError: true, error };
-  }
-
-  public override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error("Uncaught Error Boundary caught error:", error, errorInfo);
   }
 
   public override render() {
