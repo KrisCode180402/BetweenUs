@@ -57,6 +57,8 @@ export class AudioCallManager {
 
   private coupleId: string = "default-couple";
   private localUserId: string = "local-user";
+  private bufferedIceCandidates: RTCIceCandidateInit[] = [];
+  private bufferedSdpOffer: string = "";
 
   constructor(
     private options: CallSessionOptions,
@@ -130,13 +132,10 @@ export class AudioCallManager {
     }
   }
 
-  /**
-   * Initializes Supabase Realtime Signaling Client for this call session.
-   */
-  private async setupSupabaseSignaling(): Promise<SupabaseSignalingClient> {
+  private async initializeIdentityAndCoupleId(): Promise<void> {
     const pairedPartner = await getPairedPartner();
     const identity = await initializeDeviceIdentity();
-    if (identity) {
+    if (identity?.fingerprint) {
       this.localUserId = identity.fingerprint;
     }
     const myFingerprint = identity?.fingerprint || this.localUserId;
@@ -144,20 +143,28 @@ export class AudioCallManager {
       pairedPartner?.partnerPublicIdentity?.fingerprint ||
       this.options.partnerIdentity?.fingerprint;
 
-    if (myFingerprint && partnerFingerprint) {
+    if (myFingerprint && partnerFingerprint && myFingerprint !== "local-user") {
       this.coupleId = [myFingerprint, partnerFingerprint].sort().join("_");
     } else if (pairedPartner) {
       this.coupleId = (pairedPartner as any).coupleId || pairedPartner.id || "partner_trust";
     }
+  }
+
+  /**
+   * Initializes Supabase Realtime Signaling Client for this call session.
+   */
+  private async setupSupabaseSignaling(): Promise<SupabaseSignalingClient> {
+    await this.initializeIdentityAndCoupleId();
 
     this.supabaseSignaling = new SupabaseSignalingClient(this.coupleId, this.localUserId, {
       onCallInvite: (payload: SupabaseSignalingPayload) => {
         if (this.stateMachine.getState() === CallState.IDLE) {
+          const offerSdp = payload.sdp || this.bufferedSdpOffer || "";
           this.incomingInvitation = {
             sessionId: payload.sessionId,
             callerIdentity: this.options.partnerIdentity,
             callType: payload.callType || "audio",
-            offerSdp: payload.sdp || "",
+            offerSdp: offerSdp,
             timestamp: payload.timestamp || Date.now(),
           };
           this.dispatchEvent(CallEvent.INCOMING_OFFER);
@@ -180,8 +187,14 @@ export class AudioCallManager {
         this.endCall();
       },
       onSdpOffer: async (payload) => {
-        if (payload.sdp && this.pcManager) {
-          await this.pcManager.setRemoteOffer(payload.sdp);
+        if (payload.sdp) {
+          this.bufferedSdpOffer = payload.sdp;
+          if (this.incomingInvitation) {
+            this.incomingInvitation.offerSdp = payload.sdp;
+          }
+          if (this.pcManager) {
+            await this.pcManager.setRemoteOffer(payload.sdp);
+          }
         }
       },
       onSdpAnswer: async (payload) => {
@@ -190,12 +203,17 @@ export class AudioCallManager {
         }
       },
       onIceCandidate: async (payload) => {
-        if (payload.candidate && this.pcManager) {
-          await this.pcManager.addIceCandidate({
+        if (payload.candidate) {
+          const candidateInit = {
             candidate: payload.candidate.candidate || "",
             sdpMid: payload.candidate.sdpMid ?? null,
             sdpMLineIndex: payload.candidate.sdpMLineIndex ?? null,
-          });
+          };
+          if (this.pcManager) {
+            await this.pcManager.addIceCandidate(candidateInit);
+          } else {
+            this.bufferedIceCandidates.push(candidateInit);
+          }
         }
       },
       onCallEnd: () => {
@@ -271,7 +289,7 @@ export class AudioCallManager {
       const offerSdp = await this.pcManager.createOffer(callType);
       if (this.supabaseSignaling) {
         await this.supabaseSignaling.sendSdpOffer(this.options.sessionId, offerSdp, callType);
-        await this.supabaseSignaling.sendCallInvite(this.options.sessionId, callType);
+        await this.supabaseSignaling.sendCallInvite(this.options.sessionId, callType, offerSdp);
       }
 
       // Trigger Web Push notification if partner device is backgrounded
@@ -303,29 +321,19 @@ export class AudioCallManager {
     if (!pairedPartner) {
       return;
     }
-    const identity = await initializeDeviceIdentity();
-    if (identity) {
-      this.localUserId = identity.fingerprint;
-    }
-    const myFingerprint = identity?.fingerprint || this.localUserId;
-    const partnerFingerprint = pairedPartner.partnerPublicIdentity?.fingerprint;
-
-    if (myFingerprint && partnerFingerprint) {
-      this.coupleId = [myFingerprint, partnerFingerprint].sort().join("_");
-    } else {
-      this.coupleId = (pairedPartner as any).coupleId || pairedPartner.id;
-    }
+    await this.initializeIdentityAndCoupleId();
     if (!this.coupleId) return;
 
     this.supabaseSignaling = new SupabaseSignalingClient(this.coupleId, this.localUserId, {
       onCallInvite: (payload) => {
         const currentState = this.stateMachine.getState();
         if (currentState === CallState.IDLE) {
+          const offerSdp = payload.sdp || this.bufferedSdpOffer || "";
           this.incomingInvitation = {
             sessionId: payload.sessionId,
             callerIdentity: this.options.partnerIdentity,
             callType: payload.callType || "audio",
-            offerSdp: payload.sdp || "",
+            offerSdp: offerSdp,
             timestamp: payload.timestamp || Date.now(),
           };
           this.dispatchEvent(CallEvent.INCOMING_OFFER);
@@ -334,17 +342,25 @@ export class AudioCallManager {
         }
       },
       onSdpOffer: (payload) => {
-        if (this.incomingInvitation) {
-          this.incomingInvitation.offerSdp = payload.sdp || "";
+        if (payload.sdp) {
+          this.bufferedSdpOffer = payload.sdp;
+          if (this.incomingInvitation) {
+            this.incomingInvitation.offerSdp = payload.sdp;
+          }
         }
       },
       onIceCandidate: async (payload) => {
-        if (payload.candidate && this.pcManager) {
-          await this.pcManager.addIceCandidate({
+        if (payload.candidate) {
+          const candidateInit = {
             candidate: payload.candidate.candidate || "",
             sdpMid: payload.candidate.sdpMid ?? null,
             sdpMLineIndex: payload.candidate.sdpMLineIndex ?? null,
-          });
+          };
+          if (this.pcManager) {
+            await this.pcManager.addIceCandidate(candidateInit);
+          } else {
+            this.bufferedIceCandidates.push(candidateInit);
+          }
         }
       },
       onCallCancel: () => {
@@ -437,11 +453,28 @@ export class AudioCallManager {
         await this.setupSupabaseSignaling();
       }
 
-      if (this.incomingInvitation?.offerSdp) {
-        const answerSdp = await this.pcManager.createAnswer(this.incomingInvitation.offerSdp);
+      // Flush buffered ICE candidates
+      while (this.bufferedIceCandidates.length > 0) {
+        const candidate = this.bufferedIceCandidates.shift();
+        if (candidate && candidate.candidate) {
+          await this.pcManager.addIceCandidate({
+            candidate: candidate.candidate,
+            sdpMid: candidate.sdpMid ?? null,
+            sdpMLineIndex: candidate.sdpMLineIndex ?? null,
+          });
+        }
+      }
+
+      const offerSdp = this.incomingInvitation?.offerSdp || this.bufferedSdpOffer;
+      if (offerSdp) {
+        const answerSdp = await this.pcManager.createAnswer(offerSdp);
         if (this.supabaseSignaling) {
           await this.supabaseSignaling.sendCallAccept(this.options.sessionId);
           await this.supabaseSignaling.sendSdpAnswer(this.options.sessionId, answerSdp);
+        }
+      } else {
+        if (this.supabaseSignaling) {
+          await this.supabaseSignaling.sendCallAccept(this.options.sessionId);
         }
       }
 
@@ -567,6 +600,14 @@ export class AudioCallManager {
   public async switchCamera(): Promise<void> {
     if (this.pcManager) {
       await this.pcManager.switchCamera();
+    }
+  }
+
+  public stopListener(): void {
+    ringtoneManager.stopAll();
+    if (this.supabaseSignaling) {
+      this.supabaseSignaling.unsubscribe().catch(() => {});
+      this.supabaseSignaling = null;
     }
   }
 

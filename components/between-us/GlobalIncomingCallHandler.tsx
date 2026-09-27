@@ -6,6 +6,7 @@ import { IncomingCallModal } from "./IncomingCallModal";
 import { AudioCallManager, setPendingIncomingCall } from "@/lib/webrtc/call-manager";
 import { IncomingCallInvitation } from "@/lib/webrtc/types";
 import { loadPairedPartner } from "@/lib/pairing/partner-store";
+import { initializeDeviceIdentity } from "@/lib/crypto/identity";
 
 export const GlobalIncomingCallHandler: React.FC = () => {
   const router = useRouter();
@@ -17,6 +18,10 @@ export const GlobalIncomingCallHandler: React.FC = () => {
   useEffect(() => {
     // Don't run global listener if user is already inside an active call page
     if (pathname.includes("/call/") || pathname === "/audio" || pathname === "/video") {
+      if (callManagerRef.current) {
+        callManagerRef.current.stopListener();
+        callManagerRef.current = null;
+      }
       return;
     }
 
@@ -24,6 +29,7 @@ export const GlobalIncomingCallHandler: React.FC = () => {
 
     async function initIncomingListener() {
       try {
+        await initializeDeviceIdentity();
         const partner = await loadPairedPartner();
         if (!partner || !isMounted) return;
 
@@ -69,6 +75,10 @@ export const GlobalIncomingCallHandler: React.FC = () => {
 
     return () => {
       isMounted = false;
+      if (callManagerRef.current) {
+        callManagerRef.current.stopListener();
+        callManagerRef.current = null;
+      }
     };
   }, [pathname]);
 
@@ -77,6 +87,12 @@ export const GlobalIncomingCallHandler: React.FC = () => {
     const callType = incomingCall.callType || "audio";
     const sessionId = incomingCall.sessionId;
     setIncomingCall(null);
+
+    // Stop background listener before navigating to call screen
+    if (callManagerRef.current) {
+      callManagerRef.current.stopListener();
+      callManagerRef.current = null;
+    }
 
     // Route to appropriate call screen with auto-answer session parameters
     const targetRoute =
@@ -90,6 +106,7 @@ export const GlobalIncomingCallHandler: React.FC = () => {
   const handleDecline = () => {
     if (callManagerRef.current) {
       callManagerRef.current.declineCall();
+      callManagerRef.current = null;
     }
     setIncomingCall(null);
   };
@@ -105,3 +122,4 @@ export const GlobalIncomingCallHandler: React.FC = () => {
     />
   );
 };
+

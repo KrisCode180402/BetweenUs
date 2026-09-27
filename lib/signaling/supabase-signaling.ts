@@ -151,8 +151,8 @@ export class SupabaseSignalingClient {
     }
   }
 
-  public async sendCallInvite(sessionId: string, callType: CallType): Promise<void> {
-    await this.send("call_invite", { sessionId, callType });
+  public async sendCallInvite(sessionId: string, callType: CallType, sdp?: string): Promise<void> {
+    await this.send("call_invite", sdp ? { sessionId, callType, sdp } : { sessionId, callType });
   }
 
   public getCoupleId(): string {
