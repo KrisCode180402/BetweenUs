@@ -10,8 +10,10 @@ export interface IceServerConfig {
 }
 
 export function getDefaultIceServers(): IceServerConfig[] {
-  const customStunUrl = process.env.NEXT_PUBLIC_STUN_SERVER_URL;
-  const customTurnUrl = process.env.NEXT_PUBLIC_TURN_SERVER_URL;
+  const customStunUrl =
+    process.env.NEXT_PUBLIC_STUN_URL || process.env.NEXT_PUBLIC_STUN_SERVER_URL;
+  const customTurnUrl =
+    process.env.NEXT_PUBLIC_TURN_URL || process.env.NEXT_PUBLIC_TURN_SERVER_URL;
 
   const iceServers: IceServerConfig[] = [
     {
