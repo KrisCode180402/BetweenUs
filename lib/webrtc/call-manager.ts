@@ -453,7 +453,20 @@ export class AudioCallManager {
         await this.setupSupabaseSignaling();
       }
 
-      // Flush buffered ICE candidates
+      const offerSdp = this.incomingInvitation?.offerSdp || this.bufferedSdpOffer;
+      if (offerSdp) {
+        const answerSdp = await this.pcManager.createAnswer(offerSdp);
+        if (this.supabaseSignaling) {
+          await this.supabaseSignaling.sendCallAccept(this.options.sessionId);
+          await this.supabaseSignaling.sendSdpAnswer(this.options.sessionId, answerSdp);
+        }
+      } else {
+        if (this.supabaseSignaling) {
+          await this.supabaseSignaling.sendCallAccept(this.options.sessionId);
+        }
+      }
+
+      // Flush buffered remote ICE candidates after remote offer description is set
       while (this.bufferedIceCandidates.length > 0) {
         const candidate = this.bufferedIceCandidates.shift();
         if (candidate && candidate.candidate) {
@@ -465,16 +478,11 @@ export class AudioCallManager {
         }
       }
 
-      const offerSdp = this.incomingInvitation?.offerSdp || this.bufferedSdpOffer;
-      if (offerSdp) {
-        const answerSdp = await this.pcManager.createAnswer(offerSdp);
-        if (this.supabaseSignaling) {
-          await this.supabaseSignaling.sendCallAccept(this.options.sessionId);
-          await this.supabaseSignaling.sendSdpAnswer(this.options.sessionId, answerSdp);
-        }
-      } else {
-        if (this.supabaseSignaling) {
-          await this.supabaseSignaling.sendCallAccept(this.options.sessionId);
+      // Re-transmit gathered local ICE candidates to guarantee peer connection
+      if (this.pcManager && this.supabaseSignaling) {
+        const localCandidates = this.pcManager.getGatheredLocalCandidates();
+        for (const candidatePayload of localCandidates) {
+          this.supabaseSignaling.sendIceCandidate(this.options.sessionId, candidatePayload);
         }
       }
 
@@ -524,6 +532,15 @@ export class AudioCallManager {
     try {
       this.clearRingingTimeout();
       await this.pcManager.setRemoteAnswer(answerSdp);
+
+      // Re-transmit gathered local ICE candidates upon receiving remote answer
+      if (this.supabaseSignaling) {
+        const localCandidates = this.pcManager.getGatheredLocalCandidates();
+        for (const candidatePayload of localCandidates) {
+          this.supabaseSignaling.sendIceCandidate(this.options.sessionId, candidatePayload);
+        }
+      }
+
       this.dispatchEvent(CallEvent.SDP_EXCHANGE);
       this.startConnectionTimeout();
     } catch (err: any) {

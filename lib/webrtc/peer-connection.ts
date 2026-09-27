@@ -6,6 +6,7 @@ export class PeerConnectionManager {
   private localStream: MediaStream | null = null;
   private remoteStream: MediaStream | null = null;
   private pendingIceCandidates: RTCIceCandidateInit[] = [];
+  private gatheredLocalCandidates: IceCandidatePayload[] = [];
   private isRemoteDescriptionSet = false;
   private isMuted = false;
   private isCameraOff = false;
@@ -30,6 +31,10 @@ export class PeerConnectionManager {
 
   public getRemoteStream(): MediaStream | null {
     return this.remoteStream;
+  }
+
+  public getGatheredLocalCandidates(): IceCandidatePayload[] {
+    return [...this.gatheredLocalCandidates];
   }
 
   public getIsMuted(): boolean {
@@ -138,6 +143,7 @@ export class PeerConnectionManager {
     }
 
     this.pc = new RTCPeerConnectionImpl(this.rtcConfig);
+    this.gatheredLocalCandidates = [];
 
     // Add local media tracks (audio + video) to the single peer connection
     stream.getTracks().forEach((track) => {
@@ -149,36 +155,53 @@ export class PeerConnectionManager {
     // Handle ICE candidates
     this.pc.onicecandidate = (event: RTCPeerConnectionIceEvent) => {
       if (event.candidate) {
-        onIceCandidateCallback({
+        const payload: IceCandidatePayload = {
           candidate: event.candidate.candidate,
           sdpMid: event.candidate.sdpMid,
           sdpMLineIndex: event.candidate.sdpMLineIndex,
-        });
+        };
+        this.gatheredLocalCandidates.push(payload);
+        onIceCandidateCallback(payload);
       }
     };
 
-    // Handle remote media track arrival
+    // Handle remote media track arrival with fresh MediaStream instances for React re-render detection
     this.pc.ontrack = (event: RTCTrackEvent) => {
       if (event.streams && event.streams[0]) {
         this.remoteStream = event.streams[0];
-        onRemoteStreamCallback(event.streams[0]);
       } else {
         if (!this.remoteStream) {
           this.remoteStream = new MediaStream([event.track]);
         } else {
           this.remoteStream.addTrack(event.track);
         }
-        onRemoteStreamCallback(this.remoteStream);
+      }
+      if (this.remoteStream) {
+        const freshStream = new MediaStream(this.remoteStream.getTracks());
+        onRemoteStreamCallback(freshStream);
       }
     };
 
-    // Connection state monitoring
+    // Connection & ICE state monitoring for cross-platform mobile compatibility
     if (onConnectionStateCallback) {
-      this.pc.onconnectionstatechange = () => {
-        if (this.pc) {
-          onConnectionStateCallback(this.pc.connectionState);
+      const updateState = () => {
+        if (!this.pc) return;
+        const connState = this.pc.connectionState;
+        const iceState = this.pc.iceConnectionState;
+
+        if (connState === "connected" || iceState === "connected" || iceState === "completed") {
+          onConnectionStateCallback("connected");
+        } else if (connState === "failed" || iceState === "failed") {
+          onConnectionStateCallback("failed");
+        } else if (connState === "disconnected" || iceState === "disconnected") {
+          onConnectionStateCallback("disconnected");
+        } else if (connState === "connecting" || iceState === "checking") {
+          onConnectionStateCallback("connecting" as any);
         }
       };
+
+      this.pc.onconnectionstatechange = updateState;
+      this.pc.oniceconnectionstatechange = updateState;
     }
 
     return this.pc;

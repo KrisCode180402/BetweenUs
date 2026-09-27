@@ -109,7 +109,9 @@ export const CallScreen: React.FC<CallScreenProps> = ({
   useEffect(() => {
     if (audioRef.current && remoteStream) {
       audioRef.current.srcObject = remoteStream;
-      audioRef.current.play().catch(() => {});
+      audioRef.current.play().catch((err) => {
+        console.warn("Remote audio play notice:", err);
+      });
     }
   }, [remoteStream]);
 
@@ -124,6 +126,9 @@ export const CallScreen: React.FC<CallScreenProps> = ({
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream && type === "video") {
       remoteVideoRef.current.srcObject = remoteStream;
+      remoteVideoRef.current.play().catch((err) => {
+        console.warn("Remote video play notice:", err);
+      });
     }
   }, [remoteStream, type]);
 
@@ -208,7 +213,7 @@ export const CallScreen: React.FC<CallScreenProps> = ({
             className="w-full h-full object-cover"
           />
           {/* Fallback Artwork if remote video is inactive or connecting */}
-          {(!remoteStream || isVideoOff) && (
+          {!remoteStream && (
             <>
               <Image
                 src="/images/background.png"
