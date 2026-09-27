@@ -28,7 +28,7 @@ export class AudioCallManager {
   private connectionTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectionTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
 
-  private readonly INITIATION_TIMEOUT_MS = 10000;  // 10s
+  private readonly INITIATION_TIMEOUT_MS = 20000;  // 20s
   private readonly RINGING_TIMEOUT_MS = 30000;     // 30s
   private readonly CONNECTION_TIMEOUT_MS = 30000;  // 30s
   private readonly RECONNECTION_TIMEOUT_MS = 15000; // 15s
