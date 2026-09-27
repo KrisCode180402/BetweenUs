@@ -4,6 +4,7 @@ import "./globals.css";
 import { SWRegister } from "@/components/between-us/SWRegister";
 import { ErrorBoundary } from "@/components/between-us/ErrorBoundary";
 import { InstallPrompt } from "@/components/between-us/InstallPrompt";
+import { GlobalIncomingCallHandler } from "@/components/between-us/GlobalIncomingCallHandler";
 
 const outfit = Outfit({
   subsets: ["latin"],
@@ -64,6 +65,7 @@ export default function RootLayout({
           <main className="min-h-screen flex flex-col items-center justify-center">
             {children}
           </main>
+          <GlobalIncomingCallHandler />
           <InstallPrompt />
           <SWRegister />
         </ErrorBoundary>

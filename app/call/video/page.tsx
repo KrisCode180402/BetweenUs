@@ -98,7 +98,17 @@ export default function VideoCallPage() {
         setIsInitializing(false);
 
         const manager = initializeCallManager(partner.partnerPublicIdentity);
-        await manager.startCall("video");
+
+        const searchParams = new URLSearchParams(window.location.search);
+        const isAutoAnswer = searchParams.get("autoAnswer") === "true";
+
+        if (isAutoAnswer) {
+          await manager.listenForIncomingCall(async () => {
+            await manager.acceptCall();
+          });
+        } else {
+          await manager.startCall("video");
+        }
       } catch (err: any) {
         setIsInitializing(false);
         setErrorMessage(

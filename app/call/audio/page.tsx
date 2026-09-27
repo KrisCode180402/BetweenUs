@@ -94,7 +94,17 @@ export default function AudioCallPage() {
         setIsInitializing(false);
 
         const manager = initializeCallManager(partner.partnerPublicIdentity);
-        await manager.startCall("audio");
+
+        const searchParams = new URLSearchParams(window.location.search);
+        const isAutoAnswer = searchParams.get("autoAnswer") === "true";
+
+        if (isAutoAnswer) {
+          await manager.listenForIncomingCall(async () => {
+            await manager.acceptCall();
+          });
+        } else {
+          await manager.startCall("audio");
+        }
       } catch (err: any) {
         setIsInitializing(false);
         setErrorMessage(
