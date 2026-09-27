@@ -72,13 +72,18 @@ export const GeneratePairingModal: React.FC<GeneratePairingModalProps> = ({
     if (isOpen && !sessionInfo && !isLoading) {
       handleGenerate();
     }
-    return () => {
+  }, [isOpen, sessionInfo, isLoading, handleGenerate]);
+
+  useEffect(() => {
+    if (!isOpen) {
       if (unsubscribeRef.current) {
         unsubscribeRef.current();
         unsubscribeRef.current = null;
       }
-    };
-  }, [isOpen, sessionInfo, isLoading, handleGenerate]);
+      setSessionInfo(null);
+      setIncomingRequest(null);
+    }
+  }, [isOpen]);
 
   const handleCopyCode = () => {
     if (sessionInfo?.pairingCode) {
