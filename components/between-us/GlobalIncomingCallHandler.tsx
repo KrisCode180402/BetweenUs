@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { IncomingCallModal } from "./IncomingCallModal";
-import { AudioCallManager } from "@/lib/webrtc/call-manager";
+import { AudioCallManager, setPendingIncomingCall } from "@/lib/webrtc/call-manager";
 import { IncomingCallInvitation } from "@/lib/webrtc/types";
 import { loadPairedPartner } from "@/lib/pairing/partner-store";
 
@@ -50,6 +50,13 @@ export const GlobalIncomingCallHandler: React.FC = () => {
 
         await callManagerRef.current.listenForIncomingCall((invitation) => {
           if (isMounted) {
+            setPendingIncomingCall({
+              sessionId: invitation.sessionId,
+              callType: invitation.callType,
+              offerSdp: invitation.offerSdp || "",
+              partnerIdentity: invitation.callerIdentity,
+              timestamp: invitation.timestamp || Date.now(),
+            });
             setIncomingCall(invitation);
           }
         });

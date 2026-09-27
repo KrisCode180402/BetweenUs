@@ -11,10 +11,32 @@ import { PeerConnectionManager } from "./peer-connection";
 import { SupabaseSignalingClient, SupabaseSignalingPayload } from "../signaling/supabase-signaling";
 import { buildRtcConfiguration } from "./ice";
 import { getPairedPartner } from "../pairing";
-import { getPublicIdentity } from "../crypto/identity";
+import { initializeDeviceIdentity, getPublicIdentity } from "../crypto/identity";
 import { cleanupCallSession } from "./cleanup";
 import { ringtoneManager } from "../sound/ringtone";
 import { pushManager } from "../push/push-manager";
+
+export interface PendingIncomingCall {
+  sessionId: string;
+  callType: CallType;
+  offerSdp: string;
+  partnerIdentity?: any;
+  timestamp: number;
+}
+
+let pendingCallStore: PendingIncomingCall | null = null;
+
+export function setPendingIncomingCall(call: PendingIncomingCall | null): void {
+  pendingCallStore = call;
+}
+
+export function getPendingIncomingCall(): PendingIncomingCall | null {
+  return pendingCallStore;
+}
+
+export function clearPendingIncomingCall(): void {
+  pendingCallStore = null;
+}
 
 export class AudioCallManager {
   private stateMachine = new CallStateMachine();
@@ -113,7 +135,10 @@ export class AudioCallManager {
    */
   private async setupSupabaseSignaling(): Promise<SupabaseSignalingClient> {
     const pairedPartner = await getPairedPartner();
-    const identity = getPublicIdentity();
+    const identity = await initializeDeviceIdentity();
+    if (identity) {
+      this.localUserId = identity.fingerprint;
+    }
     const myFingerprint = identity?.fingerprint || this.localUserId;
     const partnerFingerprint =
       pairedPartner?.partnerPublicIdentity?.fingerprint ||
@@ -278,7 +303,10 @@ export class AudioCallManager {
     if (!pairedPartner) {
       return;
     }
-    const identity = getPublicIdentity();
+    const identity = await initializeDeviceIdentity();
+    if (identity) {
+      this.localUserId = identity.fingerprint;
+    }
     const myFingerprint = identity?.fingerprint || this.localUserId;
     const partnerFingerprint = pairedPartner.partnerPublicIdentity?.fingerprint;
 
@@ -336,6 +364,28 @@ export class AudioCallManager {
     });
 
     await this.supabaseSignaling.subscribe();
+  }
+
+  /**
+   * Accepts a pending incoming call invitation directly (Receiver handoff flow).
+   */
+  public async acceptIncomingInvitation(invitation: PendingIncomingCall): Promise<void> {
+    this.incomingInvitation = {
+      sessionId: invitation.sessionId,
+      callerIdentity: invitation.partnerIdentity || this.options.partnerIdentity,
+      callType: invitation.callType,
+      offerSdp: invitation.offerSdp,
+      timestamp: invitation.timestamp,
+    };
+    this.options.sessionId = invitation.sessionId;
+    this.options.callType = invitation.callType;
+    this.stateMachine.setSessionId(invitation.sessionId);
+
+    if (this.stateMachine.getState() === CallState.IDLE) {
+      this.dispatchEvent(CallEvent.INCOMING_OFFER);
+    }
+
+    await this.acceptCall();
   }
 
   /**

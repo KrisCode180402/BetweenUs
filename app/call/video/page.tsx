@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { CallScreen } from "@/components/between-us/CallScreen";
 import { ErrorState } from "@/components/between-us/ErrorState";
 import { ConnectionCallState } from "@/components/between-us/ConnectionStatus";
-import { AudioCallManager } from "@/lib/webrtc/call-manager";
+import { AudioCallManager, getPendingIncomingCall, clearPendingIncomingCall } from "@/lib/webrtc/call-manager";
 import { CallState } from "@/lib/webrtc/types";
 import { privacyModeManager } from "@/lib/privacy/privacy-mode";
 import { loadPairedPartner } from "@/lib/pairing/partner-store";
@@ -101,8 +101,12 @@ export default function VideoCallPage() {
 
         const searchParams = new URLSearchParams(window.location.search);
         const isAutoAnswer = searchParams.get("autoAnswer") === "true";
+        const pendingCall = getPendingIncomingCall();
 
-        if (isAutoAnswer) {
+        if (pendingCall && (isAutoAnswer || pendingCall.callType === "video")) {
+          await manager.acceptIncomingInvitation(pendingCall);
+          clearPendingIncomingCall();
+        } else if (isAutoAnswer) {
           await manager.listenForIncomingCall(async () => {
             await manager.acceptCall();
           });
