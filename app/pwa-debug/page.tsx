@@ -22,6 +22,26 @@ export default function PwaDebugPage() {
   });
 
   useEffect(() => {
+    const updateCheck = (key: string, status: PwaCheckItem["status"], detail: string) => {
+      setChecks((prev) => ({
+        ...prev,
+        [key]: { ...prev[key]!, status, detail },
+      }));
+    };
+
+    const checkImage = async (key: string, url: string) => {
+      try {
+        const res = await fetch(url, { method: "HEAD" });
+        if (res.ok) {
+          updateCheck(key, "PASS", `HTTP ${res.status} OK (${res.headers.get("content-type") || "image/png"})`);
+        } else {
+          updateCheck(key, "FAIL", `HTTP ${res.status} failed to load ${url}`);
+        }
+      } catch {
+        updateCheck(key, "FAIL", `Network error fetching ${url}`);
+      }
+    };
+
     async function runDiagnostics() {
       // 1. HTTPS / Secure Context
       const isHttps = typeof window !== "undefined" && (window.isSecureContext || window.location.protocol === "https:" || window.location.hostname === "localhost");
@@ -85,26 +105,6 @@ export default function PwaDebugPage() {
       }
     };
   }, []);
-
-  const updateCheck = (key: string, status: PwaCheckItem["status"], detail: string) => {
-    setChecks((prev) => ({
-      ...prev,
-      [key]: { ...prev[key]!, status, detail },
-    }));
-  };
-
-  const checkImage = async (key: string, url: string) => {
-    try {
-      const res = await fetch(url, { method: "HEAD" });
-      if (res.ok) {
-        updateCheck(key, "PASS", `HTTP ${res.status} OK (${res.headers.get("content-type") || "image/png"})`);
-      } else {
-        updateCheck(key, "FAIL", `HTTP ${res.status} failed to load ${url}`);
-      }
-    } catch {
-      updateCheck(key, "FAIL", `Network error fetching ${url}`);
-    }
-  };
 
   const getStatusBadge = (status: PwaCheckItem["status"]) => {
     switch (status) {
