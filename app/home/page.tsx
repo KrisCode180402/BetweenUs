@@ -8,11 +8,11 @@ export default function HomePage() {
   const router = useRouter();
 
   const handleInitiateAudioCall = () => {
-    router.push("/call/audio");
+    router.push("/audio");
   };
 
   const handleInitiateVideoCall = () => {
-    router.push("/call/video");
+    router.push("/video");
   };
 
   return (

@@ -8,26 +8,32 @@ import { ConnectionCallState } from "@/components/between-us/ConnectionStatus";
 import { AudioCallManager } from "@/lib/webrtc/call-manager";
 import { CallState } from "@/lib/webrtc/types";
 import { privacyModeManager } from "@/lib/privacy/privacy-mode";
+import { loadPairedPartner } from "@/lib/pairing/partner-store";
 
 export default function VideoCallPage() {
   const router = useRouter();
   const [callState, setCallState] = useState<CallState>(CallState.IDLE);
+  const [partnerName, setPartnerName] = useState<string>("Jona");
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
 
   const callManagerRef = useRef<AudioCallManager | null>(null);
 
-  const initializeCallManager = useCallback(() => {
+  const initializeCallManager = useCallback((partnerIdentity: any) => {
     if (!callManagerRef.current) {
       callManagerRef.current = new AudioCallManager(
         {
-          serverUrl: process.env.NEXT_PUBLIC_SIGNALING_URL || process.env.NEXT_PUBLIC_SIGNALING_SERVER_URL || "wss://signaling.betweenus.app",
+          serverUrl:
+            process.env.NEXT_PUBLIC_SIGNALING_URL ||
+            process.env.NEXT_PUBLIC_SIGNALING_SERVER_URL ||
+            "wss://signaling.betweenus.app",
           sessionId: `video_call_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
           callType: "video",
-          partnerIdentity: {
+          partnerIdentity: partnerIdentity || {
             fingerprint: "partner_device_fingerprint",
             spkiHex: "partner_spki_hex",
             algorithm: "ECDSA-P256",
@@ -37,7 +43,12 @@ export default function VideoCallPage() {
         {
           onCallStateChange: (state) => {
             setCallState(state);
-            if (state === CallState.ENDED || state === CallState.CANCELLED || state === CallState.REJECTED) {
+            if (
+              state === CallState.ENDED ||
+              state === CallState.CANCELLED ||
+              state === CallState.REJECTED ||
+              state === CallState.TIMED_OUT
+            ) {
               setTimeout(() => router.push("/home"), 1200);
             }
           },
@@ -54,7 +65,12 @@ export default function VideoCallPage() {
             setIsVideoOff(cameraOff);
           },
           onError: (err) => {
-            if (err && !err.includes("Connection closed") && !err.includes("WebSocket") && !err.includes("CHANNEL_ERROR")) {
+            if (
+              err &&
+              !err.includes("Connection closed") &&
+              !err.includes("WebSocket") &&
+              !err.includes("CHANNEL_ERROR")
+            ) {
               setErrorMessage(err);
             }
           },
@@ -65,18 +81,41 @@ export default function VideoCallPage() {
   }, [router]);
 
   useEffect(() => {
-    privacyModeManager.reset();
-    const manager = initializeCallManager();
-    manager.startCall("video").catch((err) => {
-      setErrorMessage(err.message || "Failed to start video call. Please check camera and microphone permissions.");
-    });
+    async function startVideoCallSession() {
+      privacyModeManager.reset();
+      try {
+        const partner = await loadPairedPartner();
+        if (!partner) {
+          router.push("/pairing");
+          return;
+        }
+
+        const name =
+          (partner as any).partnerName ||
+          partner.partnerPublicIdentity?.fingerprint?.substring(0, 6) ||
+          "Jona";
+        setPartnerName(name);
+        setIsInitializing(false);
+
+        const manager = initializeCallManager(partner.partnerPublicIdentity);
+        await manager.startCall("video");
+      } catch (err: any) {
+        setIsInitializing(false);
+        setErrorMessage(
+          err.message ||
+            "Camera and microphone access is required for video calls. Please check browser permissions."
+        );
+      }
+    }
+
+    startVideoCallSession();
 
     return () => {
       if (callManagerRef.current) {
         callManagerRef.current.endCall();
       }
     };
-  }, [initializeCallManager]);
+  }, [initializeCallManager, router]);
 
   const handleEndCall = () => {
     if (callManagerRef.current) {
@@ -107,25 +146,46 @@ export default function VideoCallPage() {
     }
   };
 
-  const mapCallStateToConnectionStatus = (state: CallState): ConnectionCallState => {
+  const mapCallStateToConnectionStatus = (state: CallState): ConnectionCallState | string => {
     switch (state) {
       case CallState.OUTGOING_INITIATING:
+        return "Calling...";
       case CallState.OUTGOING_RINGING:
-        return "Ringing";
+        return "Ringing...";
+      case CallState.INCOMING_RINGING:
+        return "Incoming video call";
       case CallState.ACCEPTING:
       case CallState.NEGOTIATING:
       case CallState.CONNECTING:
-        return "Connecting";
+        return "Connecting...";
       case CallState.CONNECTED:
         return "Connected";
       case CallState.RECONNECTING:
-        return "Reconnecting";
+        return "Reconnecting...";
+      case CallState.TIMED_OUT:
+        return "Call timed out";
+      case CallState.REJECTED:
+        return "Call declined";
+      case CallState.CANCELLED:
+        return "Call cancelled";
+      case CallState.FAILED:
+        return "Connection failed";
       case CallState.ENDING:
-        return "Ending";
+      case CallState.ENDED:
+        return "Call ended";
       default:
-        return "Connected";
+        return "Connecting...";
     }
   };
+
+  if (isInitializing) {
+    return (
+      <div className="w-full min-h-screen bg-[#040814] flex flex-col items-center justify-center p-6 text-center select-none font-outfit">
+        <div className="w-10 h-10 rounded-full border-3 border-teal-400 border-t-transparent animate-spin mb-3" />
+        <p className="text-xs font-mono text-slate-400 animate-pulse">Initializing Video Call...</p>
+      </div>
+    );
+  }
 
   if (errorMessage) {
     return (
@@ -146,6 +206,7 @@ export default function VideoCallPage() {
   return (
     <CallScreen
       type="video"
+      partnerName={partnerName}
       callState={mapCallStateToConnectionStatus(callState)}
       localStream={localStream}
       remoteStream={remoteStream}
