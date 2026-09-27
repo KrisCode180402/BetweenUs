@@ -2,18 +2,20 @@ import type { NextConfig } from "next";
 
 const isProd = process.env.NODE_ENV === "production";
 
-// Strict Content Security Policy
+// Strict Content Security Policy with PWA manifest & worker permissions
 const cspHeader = `
-  default-src 'none';
+  default-src 'self';
   script-src 'self' 'unsafe-inline' 'unsafe-eval';
   style-src 'self' 'unsafe-inline';
   img-src 'self' data: blob:;
   media-src 'self' blob:;
-  connect-src 'self' wss://signaling.betweenus.app https://turn.betweenus.app https://*.supabase.co wss://*.supabase.co ${isProd ? "" : "ws: wss: http: https:"};
+  connect-src 'self' wss: https: http: ws:;
   font-src 'self' data:;
+  manifest-src 'self';
+  worker-src 'self' blob:;
   frame-ancestors 'none';
   base-uri 'self';
-  form-action 'none';
+  form-action 'self';
   ${isProd ? "upgrade-insecure-requests;" : ""}
 `.replace(/\s{2,}/g, " ").trim();
 
@@ -60,8 +62,60 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      {
+        source: "/manifest.webmanifest",
+        headers: [
+          {
+            key: "Content-Type",
+            value: "application/manifest+json; charset=utf-8",
+          },
+          {
+            key: "Access-Control-Allow-Origin",
+            value: "*",
+          },
+          {
+            key: "Cache-Control",
+            value: "public, max-age=0, must-revalidate",
+          },
+        ],
+      },
+      {
+        source: "/manifest.json",
+        headers: [
+          {
+            key: "Content-Type",
+            value: "application/manifest+json; charset=utf-8",
+          },
+          {
+            key: "Access-Control-Allow-Origin",
+            value: "*",
+          },
+          {
+            key: "Cache-Control",
+            value: "public, max-age=0, must-revalidate",
+          },
+        ],
+      },
+      {
+        source: "/sw.js",
+        headers: [
+          {
+            key: "Content-Type",
+            value: "application/javascript; charset=utf-8",
+          },
+          {
+            key: "Service-Worker-Allowed",
+            value: "/",
+          },
+          {
+            key: "Cache-Control",
+            value: "no-cache, no-store, must-revalidate",
+          },
+        ],
+      },
     ];
   },
 };
 
 export default nextConfig;
+

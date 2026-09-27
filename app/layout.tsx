@@ -59,10 +59,6 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning className={`dark ${outfit.variable} ${caveat.variable}`}>
-      <head>
-        <link rel="manifest" href="/manifest.webmanifest" />
-        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-      </head>
       <body suppressHydrationWarning className="antialiased bg-[#060B14] text-gray-100 font-outfit selection:bg-teal-500 selection:text-white min-h-screen safe-area-inset">
         <ErrorBoundary>
           <main className="min-h-screen flex flex-col items-center justify-center">
@@ -75,3 +71,4 @@ export default function RootLayout({
     </html>
   );
 }
+

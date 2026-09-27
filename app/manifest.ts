@@ -2,16 +2,19 @@ import { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
+    id: "/",
     name: "Between Us",
     short_name: "Between Us",
     description: "Private communication for just the two of us.",
     start_url: "/",
     scope: "/",
     display: "standalone",
+    display_override: ["standalone", "minimal-ui"],
     orientation: "portrait",
     theme_color: "#060B14",
     background_color: "#060B14",
     categories: ["lifestyle", "social", "communication"],
+    prefer_related_applications: false,
     icons: [
       {
         src: "/icons/icon-192x192.png",
@@ -63,3 +66,4 @@ export default function manifest(): MetadataRoute.Manifest {
     ],
   };
 }
+
