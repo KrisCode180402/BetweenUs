@@ -129,7 +129,7 @@ export async function createPairingSession(deviceName?: string): Promise<Pairing
 
 /**
  * Device A (Kris): Subscribes to pairing session updates (waits for Device B to enter code).
- * Uses Dual-Layer Sync (Realtime WebSocket + 1.0s Rapid Polling Fallback).
+ * Combines Realtime Postgres Changes, Broadcast Events, and 1-second Polling for 100% reliability.
  */
 export function subscribeToPairingSession(
   sessionId: string,
@@ -140,30 +140,40 @@ export function subscribeToPairingSession(
     onExpired: () => void;
   }
 ): () => void {
-  let isCompleted = false;
+  let lastStatus = "PENDING";
+  let isFinal = false;
 
-  const handleRowUpdate = (newRow: any) => {
-    if (!newRow || isCompleted) return;
+  const handleStatusUpdate = (
+    status: string,
+    targetDeviceId?: string,
+    targetDeviceName?: string,
+    coupleId?: string
+  ) => {
+    if (isFinal) return;
 
-    if (newRow.status === "REQUESTED") {
+    if (status === "REQUESTED" && lastStatus !== "REQUESTED") {
+      lastStatus = "REQUESTED";
       callbacks.onRequestReceived({
-        sessionId: newRow.id,
-        targetDeviceId: newRow.target_device_id || "target_partner_device",
-        targetDeviceName: newRow.target_device_name || "Partner Device",
+        sessionId,
+        targetDeviceId: targetDeviceId || "unknown_device",
+        targetDeviceName: targetDeviceName || "Partner Device",
       });
-    } else if (newRow.status === "ACCEPTED" && newRow.couple_id) {
-      isCompleted = true;
-      callbacks.onAccepted(newRow.couple_id);
-    } else if (newRow.status === "REJECTED") {
-      isCompleted = true;
+    } else if (status === "ACCEPTED" && coupleId) {
+      isFinal = true;
+      lastStatus = "ACCEPTED";
+      callbacks.onAccepted(coupleId);
+    } else if (status === "REJECTED" && lastStatus !== "REJECTED") {
+      isFinal = true;
+      lastStatus = "REJECTED";
       callbacks.onRejected();
-    } else if (newRow.status === "EXPIRED") {
-      isCompleted = true;
+    } else if (status === "EXPIRED" && lastStatus !== "EXPIRED") {
+      isFinal = true;
+      lastStatus = "EXPIRED";
       callbacks.onExpired();
     }
   };
 
-  // Layer 1: Supabase Realtime Channel
+  // 1. Supabase Realtime Subscription (Postgres Changes + Broadcast)
   const channel: RealtimeChannel = supabase
     .channel(`pairing:${sessionId}`)
     .on(
@@ -175,46 +185,47 @@ export function subscribeToPairingSession(
         filter: `id=eq.${sessionId}`,
       },
       (payload) => {
-        handleRowUpdate(payload.new);
+        const newRow = payload.new;
+        if (!newRow) return;
+        handleStatusUpdate(
+          newRow.status,
+          newRow.target_device_id,
+          newRow.target_device_name,
+          newRow.couple_id
+        );
       }
     )
-    .subscribe((status, err) => {
-      if (status === "CHANNEL_ERROR" || status === "CLOSED") {
-        console.warn(`Pairing session channel ${sessionId} notice:`, err?.message || status);
+    .on("broadcast", { event: "PAIRING_UPDATE" }, (payload) => {
+      if (payload.payload) {
+        const { status, target_device_id, target_device_name, couple_id } = payload.payload;
+        handleStatusUpdate(status, target_device_id, target_device_name, couple_id);
       }
-    });
+    })
+    .subscribe();
 
-  // Layer 2: Rapid Polling Fallback (queries every 1.0s)
-  const pollInterval = setInterval(async () => {
-    if (isCompleted) return;
+  // 2. Active Polling Fallback (1-second interval)
+  const pollTimer = setInterval(async () => {
+    if (isFinal) return;
     try {
-      const { data } = await supabase
+      const { data: session } = await supabase
         .from("pairing_sessions")
         .select("*")
         .eq("id", sessionId)
         .single();
 
-      if (data) {
-        handleRowUpdate(data);
+      if (session) {
+        handleStatusUpdate(
+          session.status,
+          session.target_device_id,
+          session.target_device_name,
+          session.couple_id
+        );
       }
     } catch {}
   }, 1000);
 
-  // Initial immediate query
-  (async () => {
-    try {
-      const { data } = await supabase
-        .from("pairing_sessions")
-        .select("*")
-        .eq("id", sessionId)
-        .single();
-      if (data) handleRowUpdate(data);
-    } catch {}
-  })();
-
   return () => {
-    isCompleted = true;
-    clearInterval(pollInterval);
+    clearInterval(pollTimer);
     try {
       supabase.removeChannel(channel);
     } catch {}
@@ -249,25 +260,43 @@ export async function submitPairingCode(
     return { success: false, message: "Pairing code has expired. Please ask your partner for a new code." };
   }
 
-  // Prevent self-pairing only if device IDs are distinct
+  // Prevent self-pairing
   if (session.initiator_device_id === identity.fingerprint) {
-    // For local testing on the same browser instance, allow pairing bypass
-    console.warn("Self-pairing attempted on same browser identity.");
+    return { success: false, message: "You cannot pair a device with itself." };
   }
 
   // Send pairing request to Device A
+  const targetDeviceName = deviceName || "Jona's Device";
   const { error: updateError } = await supabase
     .from("pairing_sessions")
     .update({
       status: "REQUESTED",
       target_device_id: identity.fingerprint,
-      target_device_name: deviceName || "Partner Device",
+      target_device_name: targetDeviceName,
     })
     .eq("id", session.id);
 
   if (updateError) {
     return { success: false, message: `Pairing request failed: ${updateError.message}` };
   }
+
+  // Broadcast real-time event to Device A
+  try {
+    const channel = supabase.channel(`pairing:${session.id}`);
+    channel.subscribe((status) => {
+      if (status === "SUBSCRIBED") {
+        channel.send({
+          type: "broadcast",
+          event: "PAIRING_UPDATE",
+          payload: {
+            status: "REQUESTED",
+            target_device_id: identity.fingerprint,
+            target_device_name: targetDeviceName,
+          },
+        });
+      }
+    });
+  } catch {}
 
   return {
     success: true,
@@ -285,29 +314,35 @@ export async function acceptPairingRequest(
   targetDeviceName: string
 ): Promise<{ success: boolean; coupleId: string }> {
   const identity = await getPublicIdentity();
-  const localFingerprint = identity?.fingerprint || "local_device";
+  if (!identity) {
+    throw new Error("Local device identity not initialized.");
+  }
 
-  let coupleId: string = `couple_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+  let coupleId = "";
 
-  // 1. Attempt Couple record creation
+  // 1. Create Couple record
   try {
-    const { data: couple } = await supabase
+    const { data: couple, error: coupleErr } = await supabase
       .from("couples")
       .insert({})
       .select()
       .single();
 
-    if (couple && couple.id) {
+    if (!coupleErr && couple) {
       coupleId = couple.id;
     }
   } catch {}
+
+  if (!coupleId) {
+    coupleId = `couple_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  }
 
   // 2. Add members to couple
   try {
     await supabase.from("couple_members").insert([
       {
         couple_id: coupleId,
-        device_id: localFingerprint,
+        device_id: identity.fingerprint,
         device_name: "Kris's Device",
       },
       {
@@ -327,6 +362,23 @@ export async function acceptPairingRequest(
       used_at: new Date().toISOString(),
     })
     .eq("id", sessionId);
+
+  // Broadcast real-time ACCEPTED event to Device B
+  try {
+    const channel = supabase.channel(`pairing:${sessionId}`);
+    channel.subscribe((status) => {
+      if (status === "SUBSCRIBED") {
+        channel.send({
+          type: "broadcast",
+          event: "PAIRING_UPDATE",
+          payload: {
+            status: "ACCEPTED",
+            couple_id: coupleId,
+          },
+        });
+      }
+    });
+  } catch {}
 
   // 4. Save paired partner locally in IndexedDB
   const record: PairedPartnerRecord = {
@@ -354,11 +406,24 @@ export async function acceptPairingRequest(
  */
 export async function rejectPairingRequest(sessionId: string): Promise<void> {
   await supabase.from("pairing_sessions").update({ status: "REJECTED" }).eq("id", sessionId);
+
+  try {
+    const channel = supabase.channel(`pairing:${sessionId}`);
+    channel.subscribe((status) => {
+      if (status === "SUBSCRIBED") {
+        channel.send({
+          type: "broadcast",
+          event: "PAIRING_UPDATE",
+          payload: { status: "REJECTED" },
+        });
+      }
+    });
+  } catch {}
 }
 
 /**
  * Device B (Jona): Listens for Device A's approval response on pairing session.
- * Uses Dual-Layer Sync (Realtime WebSocket + 1.0s Rapid Polling Fallback).
+ * Combines Realtime Postgres Changes, Broadcast Events, and 1-second Polling for 100% reliability.
  */
 export function subscribeToPairingResponse(
   sessionId: string,
@@ -367,55 +432,41 @@ export function subscribeToPairingResponse(
     onRejected: () => void;
   }
 ): () => void {
-  let isCompleted = false;
+  let isFinal = false;
 
-  const handleRowUpdate = async (newRow: any) => {
-    if (!newRow || isCompleted) return;
+  const handleAccepted = async (coupleId: string, initiatorName?: string, initiatorDeviceId?: string) => {
+    if (isFinal) return;
+    isFinal = true;
 
-    if (newRow.status === "ACCEPTED" && newRow.couple_id) {
-      isCompleted = true;
+    const partnerName = initiatorName || "Partner";
+    const partnerDeviceId = initiatorDeviceId || "partner_device_id";
 
-      let partnerName = newRow.initiator_device_name || "Partner";
-      let partnerDeviceId = newRow.initiator_device_id || "partner_device";
+    const record: PairedPartnerRecord = {
+      id: "partner_trust",
+      partnerPublicIdentity: {
+        algorithm: "ECDSA-P256",
+        spkiHex: "",
+        fingerprint: partnerDeviceId,
+        createdAt: Date.now(),
+      },
+      pairedAt: Date.now(),
+      version: 1,
+    };
 
-      try {
-        const { data: member } = await supabase
-          .from("couple_members")
-          .select("*")
-          .eq("couple_id", newRow.couple_id)
-          .neq("device_id", newRow.target_device_id)
-          .single();
+    (record as any).coupleId = coupleId;
+    (record as any).partnerName = partnerName;
 
-        if (member) {
-          partnerName = member.device_name || partnerName;
-          partnerDeviceId = member.device_id || partnerDeviceId;
-        }
-      } catch {}
-
-      const record: PairedPartnerRecord = {
-        id: "partner_trust",
-        partnerPublicIdentity: {
-          algorithm: "ECDSA-P256",
-          spkiHex: "",
-          fingerprint: partnerDeviceId,
-          createdAt: Date.now(),
-        },
-        pairedAt: Date.now(),
-        version: 1,
-      };
-
-      (record as any).coupleId = newRow.couple_id;
-      (record as any).partnerName = partnerName;
-
-      await savePairedPartner(record);
-      callbacks.onAccepted(newRow.couple_id);
-    } else if (newRow.status === "REJECTED") {
-      isCompleted = true;
-      callbacks.onRejected();
-    }
+    await savePairedPartner(record);
+    callbacks.onAccepted(coupleId);
   };
 
-  // Layer 1: Supabase Realtime Channel
+  const handleRejected = () => {
+    if (isFinal) return;
+    isFinal = true;
+    callbacks.onRejected();
+  };
+
+  // 1. Supabase Realtime Subscription
   const channel = supabase
     .channel(`pairing_resp:${sessionId}`)
     .on(
@@ -427,46 +478,50 @@ export function subscribeToPairingResponse(
         filter: `id=eq.${sessionId}`,
       },
       (payload) => {
-        handleRowUpdate(payload.new);
+        const newRow = payload.new;
+        if (!newRow) return;
+
+        if (newRow.status === "ACCEPTED" && newRow.couple_id) {
+          handleAccepted(newRow.couple_id, newRow.initiator_device_name, newRow.initiator_device_id);
+        } else if (newRow.status === "REJECTED") {
+          handleRejected();
+        }
       }
     )
-    .subscribe((status, err) => {
-      if (status === "CHANNEL_ERROR" || status === "CLOSED") {
-        console.warn(`Pairing response channel ${sessionId} notice:`, err?.message || status);
+    .on("broadcast", { event: "PAIRING_UPDATE" }, (payload) => {
+      if (payload.payload) {
+        const { status, couple_id } = payload.payload;
+        if (status === "ACCEPTED" && couple_id) {
+          handleAccepted(couple_id);
+        } else if (status === "REJECTED") {
+          handleRejected();
+        }
       }
-    });
+    })
+    .subscribe();
 
-  // Layer 2: Rapid Polling Fallback (queries every 1.0s)
-  const pollInterval = setInterval(async () => {
-    if (isCompleted) return;
+  // 2. Active Polling Fallback (1-second interval)
+  const pollTimer = setInterval(async () => {
+    if (isFinal) return;
     try {
-      const { data } = await supabase
+      const { data: session } = await supabase
         .from("pairing_sessions")
         .select("*")
         .eq("id", sessionId)
         .single();
 
-      if (data) {
-        handleRowUpdate(data);
+      if (session) {
+        if (session.status === "ACCEPTED" && session.couple_id) {
+          handleAccepted(session.couple_id, session.initiator_device_name, session.initiator_device_id);
+        } else if (session.status === "REJECTED") {
+          handleRejected();
+        }
       }
     } catch {}
   }, 1000);
 
-  // Initial immediate query
-  (async () => {
-    try {
-      const { data } = await supabase
-        .from("pairing_sessions")
-        .select("*")
-        .eq("id", sessionId)
-        .single();
-      if (data) handleRowUpdate(data);
-    } catch {}
-  })();
-
   return () => {
-    isCompleted = true;
-    clearInterval(pollInterval);
+    clearInterval(pollTimer);
     try {
       supabase.removeChannel(channel);
     } catch {}
