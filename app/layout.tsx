@@ -21,10 +21,9 @@ const caveat = Caveat({
 
 export const metadata: Metadata = {
   title: "Between Us — Two People. One Private Connection.",
-  description:
-    "Security-focused, privacy-preserving 1-to-1 WebRTC audio and video calling PWA.",
+  description: "Private communication for just the two of us.",
   applicationName: "Between Us",
-  manifest: "/manifest.json",
+  manifest: "/manifest.webmanifest",
   authors: [{ name: "Between Us Team" }],
   referrer: "no-referrer",
   robots: "noindex, nofollow",
@@ -39,7 +38,7 @@ export const metadata: Metadata = {
       { url: "/icons/icon-512x512.png", sizes: "512x512", type: "image/png" },
     ],
     apple: [
-      { url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
     ],
   },
 };
@@ -60,6 +59,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning className={`dark ${outfit.variable} ${caveat.variable}`}>
+      <head>
+        <link rel="manifest" href="/manifest.webmanifest" />
+        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+      </head>
       <body suppressHydrationWarning className="antialiased bg-[#060B14] text-gray-100 font-outfit selection:bg-teal-500 selection:text-white min-h-screen safe-area-inset">
         <ErrorBoundary>
           <main className="min-h-screen flex flex-col items-center justify-center">

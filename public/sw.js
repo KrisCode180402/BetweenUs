@@ -1,19 +1,24 @@
 /* eslint-disable no-restricted-globals */
 /**
- * Between Us — Service Worker
- * Robust PWA Service Worker with Web Push & Ephemeral Call Signaling Support
+ * Between Us — Production Service Worker
+ * PWA Offline App Shell & Web Push Notification Handler
+ * Privacy-First: Never caches WebRTC signaling, SDP, ICE, tokens, or media streams.
  */
 
-const CACHE_NAME = 'between-us-static-v1';
+const CACHE_NAME = 'between-us-v1';
 
 const STATIC_ASSETS = [
+  '/',
   '/manifest.json',
+  '/manifest.webmanifest',
   '/icons/icon-192x192.png',
   '/icons/icon-512x512.png',
+  '/icons/maskable-icon-192x192.png',
   '/icons/maskable-icon-512x512.png',
+  '/icons/apple-touch-icon.png',
 ];
 
-// Install event: Pre-cache static icons & manifest
+// Install event: Pre-cache static PWA assets & app shell
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
@@ -24,7 +29,7 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// Activate event: Purge outdated caches & claim clients immediately
+// Activate event: Reclaim clients & purge legacy caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
@@ -39,7 +44,7 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch event: Network-First for HTML/Next.js, Network-Only for APIs/Supabase/Signaling/TURN
+// Fetch event: Handles PWA installability & offline fallback
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
@@ -47,21 +52,20 @@ self.addEventListener('fetch', (event) => {
   // 1. Non-GET requests bypass SW
   if (request.method !== 'GET') return;
 
-  // 2. Bypass SW for Next.js assets, APIs, Supabase, WebSockets, wss:, turn, Vercel internal routes
+  // 2. Bypass WebSockets, WebRTC, APIs, Supabase, and cross-origin requests
   if (
-    url.pathname.startsWith('/_next/') ||
-    url.pathname.startsWith('/api/') ||
-    url.hostname.includes('supabase') ||
-    url.hostname.includes('vercel') ||
-    url.hostname.includes('turn') ||
     url.protocol === 'ws:' ||
     url.protocol === 'wss:' ||
+    url.pathname.startsWith('/api/') ||
+    url.pathname.startsWith('/_next/webpack-hmr') ||
+    url.hostname.includes('supabase') ||
+    url.hostname.includes('turn') ||
     url.origin !== self.location.origin
   ) {
     return;
   }
 
-  // 3. For navigation requests, use Network-First with Cache Fallback for PWA offline support
+  // 3. Navigation requests (App Shell)
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
@@ -79,7 +83,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 4. For icons and manifest, use Cache-First
+  // 4. Static PWA assets (Cache-First)
   if (STATIC_ASSETS.includes(url.pathname)) {
     event.respondWith(
       caches.match(request).then((cached) => {
@@ -88,6 +92,13 @@ self.addEventListener('fetch', (event) => {
     );
     return;
   }
+
+  // 5. Default Network-First fallback with Cache Fallback for same-origin GET
+  event.respondWith(
+    fetch(request)
+      .then((response) => response)
+      .catch(() => caches.match(request).then((cached) => cached || fetch(request)))
+  );
 });
 
 // ==================================================
@@ -141,7 +152,6 @@ self.addEventListener('notificationclick', (event) => {
   const targetUrl = notificationData.url || '/home';
 
   if (action === 'decline') {
-    // Post message to active clients if available to handle decline signal
     event.waitUntil(
       self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
         for (const client of clientList) {
@@ -155,7 +165,6 @@ self.addEventListener('notificationclick', (event) => {
     return;
   }
 
-  // Otherwise (action === 'answer' or notification body clicked), open/focus application window
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
@@ -172,7 +181,6 @@ self.addEventListener('notificationclick', (event) => {
 });
 
 self.addEventListener('notificationclose', (event) => {
-  // Ephemeral cleanup on notification dismiss
   const notificationData = event.notification.data || {};
   if (notificationData.callId) {
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
@@ -186,7 +194,6 @@ self.addEventListener('notificationclose', (event) => {
   }
 });
 
-// Skip waiting signal
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
