@@ -3,6 +3,7 @@ import { Outfit, Caveat } from "next/font/google";
 import "./globals.css";
 import { SWRegister } from "@/components/between-us/SWRegister";
 import { ErrorBoundary } from "@/components/between-us/ErrorBoundary";
+import { InstallPrompt } from "@/components/between-us/InstallPrompt";
 
 const outfit = Outfit({
   subsets: ["latin"],
@@ -49,6 +50,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -58,11 +60,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning className={`dark ${outfit.variable} ${caveat.variable}`}>
-      <body suppressHydrationWarning className="antialiased bg-[#060B14] text-gray-100 font-outfit selection:bg-teal-500 selection:text-white min-h-screen">
+      <body suppressHydrationWarning className="antialiased bg-[#060B14] text-gray-100 font-outfit selection:bg-teal-500 selection:text-white min-h-screen safe-area-inset">
         <ErrorBoundary>
           <main className="min-h-screen flex flex-col items-center justify-center">
             {children}
           </main>
+          <InstallPrompt />
           <SWRegister />
         </ErrorBoundary>
       </body>
