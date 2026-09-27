@@ -5,66 +5,80 @@ import React from "react";
 export const PairingHeader: React.FC = () => {
   return (
     <div className="w-full flex flex-col items-center text-center space-y-2 select-none z-10">
-      {/* 3D Glowing Dual Hearts Logo */}
-      <div className="relative w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center mb-1">
-        {/* Ambient Radial Soft Glow */}
-        <div className="absolute inset-0 bg-gradient-to-tr from-emerald-500/40 via-teal-400/30 to-sky-500/40 rounded-full blur-xl animate-pulse-glow" />
+      {/* 3D Glowing Dual Hearts (Emerald Green + Sky Blue) */}
+      <div className="relative w-20 h-16 sm:w-24 sm:h-20 flex items-center justify-center my-1">
+        {/* Soft Radial Ambient Aura Glow */}
+        <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/30 via-teal-400/20 to-sky-500/30 rounded-full blur-xl animate-pulse-glow" />
 
-        {/* Overlapping Dual 3D Hearts SVG */}
-        <div className="relative z-10 flex items-center justify-center">
-          <svg
-            className="w-12 h-12 sm:w-16 sm:h-16 drop-shadow-[0_0_15px_rgba(52,211,153,0.6)]"
-            viewBox="0 0 64 64"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <defs>
-              <linearGradient id="emeraldHeart" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#34D399" />
-                <stop offset="100%" stopColor="#059669" />
-              </linearGradient>
-              <linearGradient id="skyHeart" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#38BDF8" />
-                <stop offset="100%" stopColor="#0284C7" />
-              </linearGradient>
-            </defs>
+        {/* Dual 3D Hearts SVG */}
+        <svg
+          className="relative z-10 w-16 h-14 sm:w-20 sm:h-16 drop-shadow-[0_0_16px_rgba(52,211,153,0.5)]"
+          viewBox="0 0 100 80"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <defs>
+            <linearGradient id="emeraldHeartGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#34D399" />
+              <stop offset="50%" stopColor="#10B981" />
+              <stop offset="100%" stopColor="#059669" />
+            </linearGradient>
+            <linearGradient id="skyHeartGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#38BDF8" />
+              <stop offset="50%" stopColor="#0284C7" />
+              <stop offset="100%" stopColor="#0369A1" />
+            </linearGradient>
+            <filter id="glowGreen" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="3" result="blur" />
+              <feComposite in="SourceGraphic" in2="blur" operator="over" />
+            </filter>
+            <filter id="glowBlue" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="3" result="blur" />
+              <feComposite in="SourceGraphic" in2="blur" operator="over" />
+            </filter>
+          </defs>
 
-            {/* Left Emerald Heart */}
+          {/* Left Emerald Heart */}
+          <g filter="url(#glowGreen)">
             <path
-              d="M26 14C20.477 14 16 18.477 16 24C16 33.5 28 41 32 43.5C29 38 24 33 24 24C24 18.5 28.5 14 34 14C36.8 14 39.3 15.1 41 17C38 15 34 14 30 14Z"
-              fill="url(#emeraldHeart)"
-              opacity="0.95"
+              d="M38 15 C26 5, 12 18, 22 36 C30 50, 42 62, 44 64 C44 64, 40 50, 36 36 C34 26, 42 18, 44 18 C41 16, 39 15, 38 15 Z"
+              fill="url(#emeraldHeartGrad)"
             />
             <path
-              d="M28 12C21.373 12 16 17.373 16 24C16 34.5 30 43.5 32 45C34 43.5 48 34.5 48 24C48 17.373 42.627 12 36 12C32.1 12 28.7 13.9 26.6 16.8C25.4 13.9 22.4 12 18.8 12C12.3 12 7 17.3 7 23.8C7 34 20 42.5 22 43.8"
-              stroke="#34D399"
-              strokeWidth="1.5"
-              strokeLinecap="round"
+              d="M32 12 C18 12, 10 24, 10 36 C10 52, 34 68, 42 74 C42 74, 14 56, 14 36 C14 26, 20 16, 30 14 C31 13, 31.5 12.5, 32 12 Z"
+              fill="#6EE7B7"
+              opacity="0.6"
             />
-            {/* Main Emerald Heart */}
             <path
-              d="M24 16C18.477 16 14 20.477 14 26C14 36.5 28 44.5 30 46C30 46 22 37 22 26C22 20.5 26.5 16 32 16C35 16 37.5 17.5 39 19.5C36.5 17.2 33.2 16 29.5 16H24Z"
-              fill="url(#emeraldHeart)"
+              d="M30 14 C18 14, 10 24, 10 36 C10 52, 38 70, 42 72 C46 70, 74 52, 74 36 C74 24, 66 14, 54 14 C46 14, 43 19, 42 22 C41 19, 38 14, 30 14 Z"
+              fill="url(#emeraldHeartGrad)"
             />
+          </g>
 
-            {/* Right Sky Blue Heart */}
+          {/* Right Sky Blue Heart (Overlapping right side) */}
+          <g filter="url(#glowBlue)">
             <path
-              d="M40 20C34.477 20 30 24.477 30 30C30 40.5 44 48.5 46 50C48 48.5 62 40.5 62 30C62 24.477 57.523 20 52 20C48.1 20 44.7 21.9 42.6 24.8C41.4 21.9 38.4 20 34.8 20"
-              fill="url(#skyHeart)"
+              d="M58 24 C48 24, 42 32, 42 42 C42 55, 64 70, 67 72 C70 70, 92 55, 92 42 C92 32, 86 24, 76 24 C70 24, 68 28, 67 30 C66 28, 64 24, 58 24 Z"
+              fill="url(#skyHeartGrad)"
             />
-          </svg>
-        </div>
+            <path
+              d="M58 24 C50 24, 44 30, 44 40 C44 50, 62 64, 67 68 C68 66, 68 64, 68 62 C64 58, 48 46, 48 38 C48 30, 52 26, 58 24 Z"
+              fill="#7DD3FC"
+              opacity="0.5"
+            />
+          </g>
+        </svg>
       </div>
 
       {/* Script Title with Green Heart Outline */}
-      <div className="flex items-center justify-center gap-1.5">
-        <h1 className="font-script text-4xl sm:text-5xl font-normal text-white tracking-wide drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]">
+      <div className="flex items-center justify-center gap-2">
+        <h1 className="font-script text-4xl sm:text-5xl font-normal text-white tracking-wide drop-shadow-[0_0_15px_rgba(255,255,255,0.4)]">
           Between Us
         </h1>
         <svg
           className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-400 fill-none stroke-current animate-pulse"
           viewBox="0 0 24 24"
-          strokeWidth={2}
+          strokeWidth={2.2}
         >
           <path
             strokeLinecap="round"
@@ -75,7 +89,7 @@ export const PairingHeader: React.FC = () => {
       </div>
 
       {/* Subtitle */}
-      <div className="flex items-center justify-center gap-1 text-slate-300/90 text-xs sm:text-sm font-medium tracking-wide">
+      <div className="flex items-center justify-center gap-1.5 text-slate-200/90 text-xs sm:text-sm font-medium tracking-wide">
         <span>Just the two of us</span>
         <svg
           className="w-3.5 h-3.5 text-emerald-400 fill-none stroke-current"

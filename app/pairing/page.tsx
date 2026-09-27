@@ -57,9 +57,8 @@ export default function PairingPage() {
           sizes="100vw"
           className="object-cover object-center w-full h-full"
         />
-        {/* Soft Atmospheric Gradient Overlays for High Legibility */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#040814]/80 via-[#040814]/25 to-[#040814]/95" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-teal-500/10 via-transparent to-[#040814]/60" />
+        {/* Soft Ambient Overlay for Optimal Legibility while Keeping Sunset & Couple Crisp */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#040814]/70 via-transparent to-[#040814]/90" />
       </div>
 
       {/* Main Mobile App Container */}
@@ -67,7 +66,7 @@ export default function PairingPage() {
         
         {/* Top Control Area */}
         <div className="w-full flex items-center justify-between pt-1">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-900/70 border border-slate-700/60 text-[10px] text-slate-300 font-mono backdrop-blur-md">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-900/60 border border-slate-700/50 text-[10px] text-slate-300 font-mono backdrop-blur-md">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             <span>ENCRYPTED P2P</span>
           </div>
@@ -79,11 +78,11 @@ export default function PairingPage() {
           <PairingHeader />
         </div>
 
-        {/* 3 Feature Pills: Voice Calls, Video Calls, Private & Secure */}
+        {/* 3 Feature Cards: Voice Calls, Video Calls, Private & Secure */}
         <FeatureBadges />
 
-        {/* Flexible Middle Spacer showing the Romantic Sunset Couple Artwork */}
-        <div className="w-full flex-1 min-h-[120px] sm:min-h-[160px]" />
+        {/* Flexible Middle Spacer revealing the Romantic Sunset Couple Artwork */}
+        <div className="w-full flex-1 min-h-[140px] sm:min-h-[180px]" />
 
         {/* Primary Action Controls */}
         <div className="w-full space-y-3 pt-2">
