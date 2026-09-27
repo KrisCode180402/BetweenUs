@@ -4,6 +4,7 @@ import { DevicePublicIdentity } from "../crypto/identity/types";
 import { initializeDeviceIdentity, getPublicIdentity } from "../crypto/identity/service";
 import { PairedPartnerRecord } from "./types";
 import { RealtimeChannel } from "@supabase/supabase-js";
+import { sha256Pure } from "../crypto/sha256";
 
 export interface PairingSessionInfo {
   sessionId: string;
@@ -57,33 +58,12 @@ export function generateSecurePairingCode(): string {
 }
 
 /**
- * SHA-256 hash helper for secure pairing code storing.
+ * Deterministic Pure-JS SHA-256 hash helper.
+ * Works 100% identically on HTTPS, HTTP, mobile WebViews, and desktop browsers.
  */
 export async function hashPairingCode(code: string): Promise<string> {
   const cleanCode = code.replace(/[^A-Z0-9]/gi, "").toUpperCase();
-  const encoder = new TextEncoder();
-  const data = encoder.encode(`between-us-pairing-salt:${cleanCode}`);
-
-  const subtle =
-    typeof globalThis !== "undefined" && globalThis.crypto?.subtle
-      ? globalThis.crypto.subtle
-      : typeof window !== "undefined" && window.crypto?.subtle
-      ? window.crypto.subtle
-      : null;
-
-  if (subtle) {
-    const hashBuffer = await subtle.digest("SHA-256", data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-  }
-
-  let hash = 0;
-  for (let i = 0; i < data.length; i++) {
-    const charCode = data[i] ?? 0;
-    hash = (hash << 5) - hash + charCode;
-    hash |= 0;
-  }
-  return Math.abs(hash).toString(16);
+  return sha256Pure(`between-us-pairing-salt:${cleanCode}`);
 }
 
 /**
@@ -241,8 +221,8 @@ export function subscribeToPairingSession(
   // Immediate initial check
   checkLocalAndRemote();
 
-  // High-frequency 800ms interval polling
-  const pollInterval = setInterval(checkLocalAndRemote, 800);
+  // High-frequency 700ms interval polling
+  const pollInterval = setInterval(checkLocalAndRemote, 700);
 
   // BroadcastChannel listener
   const bc = getBroadcastChannel();
@@ -326,17 +306,18 @@ export async function submitPairingCode(
 
   let foundSession: any = null;
 
-  // 1. Try finding matching session in Supabase
+  // 1. Try finding matching session in Supabase using deterministic pure SHA-256 codeHash
   try {
-    const { data: session } = await supabase
+    const { data: sessions } = await supabase
       .from("pairing_sessions")
       .select("*")
       .eq("pairing_code_hash", codeHash)
       .eq("status", "PENDING")
-      .single();
+      .order("created_at", { ascending: false })
+      .limit(1);
 
-    if (session) {
-      foundSession = session;
+    if (sessions && sessions.length > 0) {
+      foundSession = sessions[0];
     }
   } catch {}
 
@@ -691,9 +672,9 @@ export function subscribeToPairingResponse(
     } catch {}
   };
 
-  // Immediate check & 800ms polling fallback
+  // Immediate check & 700ms polling fallback
   checkResponseStatus();
-  const pollInterval = setInterval(checkResponseStatus, 800);
+  const pollInterval = setInterval(checkResponseStatus, 700);
 
   // BroadcastChannel listener
   const bc = getBroadcastChannel();
