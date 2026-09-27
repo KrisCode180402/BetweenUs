@@ -1,7 +1,7 @@
 /* eslint-disable no-restricted-globals */
 /**
  * Between Us — Service Worker
- * Robust PWA Service Worker for Next.js App Router on Vercel
+ * Robust PWA Service Worker with Web Push & Ephemeral Call Signaling Support
  */
 
 const CACHE_NAME = 'between-us-static-v1';
@@ -87,6 +87,102 @@ self.addEventListener('fetch', (event) => {
       })
     );
     return;
+  }
+});
+
+// ==================================================
+// WEB PUSH & INCOMING CALL NOTIFICATIONS
+// ==================================================
+
+self.addEventListener('push', (event) => {
+  if (!event.data) return;
+
+  let payload = {};
+  try {
+    payload = event.data.json();
+  } catch {
+    payload = { type: 'incoming-call', callType: 'audio', callId: '' };
+  }
+
+  if (payload.type === 'incoming-call') {
+    const callType = payload.callType === 'video' ? 'video' : 'audio';
+    const callerName = payload.callerName || 'Partner';
+    const callId = payload.callId || '';
+
+    const title = 'Between Us ❤️';
+    const options = {
+      body: `Incoming ${callType} call from ${callerName}`,
+      icon: '/icons/icon-192x192.png',
+      badge: '/icons/icon-192x192.png',
+      tag: `incoming-call-${callId}`,
+      renotify: true,
+      requireInteraction: true,
+      vibrate: [300, 150, 300, 150, 300, 150, 300],
+      data: {
+        callId,
+        callType,
+        url: `/call/${callType}?callId=${callId}&autoAnswer=true`,
+      },
+      actions: [
+        { action: 'answer', title: 'Answer' },
+        { action: 'decline', title: 'Decline' },
+      ],
+    };
+
+    event.waitUntil(self.registration.showNotification(title, options));
+  }
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  const action = event.action;
+  const notificationData = event.notification.data || {};
+  const targetUrl = notificationData.url || '/home';
+
+  if (action === 'decline') {
+    // Post message to active clients if available to handle decline signal
+    event.waitUntil(
+      self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+        for (const client of clientList) {
+          client.postMessage({
+            type: 'CALL_DECLINED_VIA_PUSH',
+            callId: notificationData.callId,
+          });
+        }
+      })
+    );
+    return;
+  }
+
+  // Otherwise (action === 'answer' or notification body clicked), open/focus application window
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if ('focus' in client) {
+          client.navigate(targetUrl);
+          return client.focus();
+        }
+      }
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(targetUrl);
+      }
+    })
+  );
+});
+
+self.addEventListener('notificationclose', (event) => {
+  // Ephemeral cleanup on notification dismiss
+  const notificationData = event.notification.data || {};
+  if (notificationData.callId) {
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        client.postMessage({
+          type: 'NOTIFICATION_DISMISSED',
+          callId: notificationData.callId,
+        });
+      }
+    });
   }
 });
 

@@ -1,7 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { unpairCurrentDevice } from "@/lib/pairing/supabase-pairing";
+import { pushManager, PushPermissionStatus } from "@/lib/push/push-manager";
+import { requestMediaPermissions } from "@/lib/permissions/media-permissions";
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -22,6 +24,34 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [isUnpairing, setIsUnpairing] = useState(false);
   const [safetyCode] = useState<string>("8F4A - 29C1 - 77B9 - D03E");
   const [copiedCode, setCopiedCode] = useState(false);
+
+  // Notification state
+  const [pushStatus, setPushStatus] = useState<PushPermissionStatus>('default');
+  const [pushEnabled, setPushEnabled] = useState<boolean>(false);
+  const [incomingCallNotifications, setIncomingCallNotifications] = useState<boolean>(true);
+  const [testMessage, setTestMessage] = useState<string | null>(null);
+  const [isSubscribing, setIsSubscribing] = useState<boolean>(false);
+
+  // Media permission state
+  const [micState, setMicState] = useState<'unknown' | 'granted' | 'denied'>('unknown');
+  const [camState, setCamState] = useState<'unknown' | 'granted' | 'denied'>('unknown');
+
+  useEffect(() => {
+    if (isOpen) {
+      setPushStatus(pushManager.getPermissionState());
+      setPushEnabled(pushManager.isEnabledLocally());
+
+      if (navigator.permissions && navigator.permissions.query) {
+        navigator.permissions.query({ name: 'microphone' as PermissionName }).then((status) => {
+          setMicState(status.state as 'granted' | 'denied');
+        }).catch(() => {});
+
+        navigator.permissions.query({ name: 'camera' as PermissionName }).then((status) => {
+          setCamState(status.state as 'granted' | 'denied');
+        }).catch(() => {});
+      }
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -44,6 +74,63 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     navigator.clipboard.writeText(safetyCode);
     setCopiedCode(true);
     setTimeout(() => setCopiedCode(false), 2000);
+  };
+
+  const handleTogglePush = async () => {
+    setIsSubscribing(true);
+    setTestMessage(null);
+    try {
+      if (pushEnabled) {
+        await pushManager.disableNotifications(myDeviceName);
+        setPushEnabled(false);
+        setPushStatus(pushManager.getPermissionState());
+        setTestMessage("Push notifications disabled.");
+      } else {
+        const res = await pushManager.enableNotifications(myDeviceName);
+        if (res.success) {
+          setPushEnabled(true);
+          setPushStatus('granted');
+          setTestMessage("Push notifications enabled!");
+        } else {
+          setTestMessage(`Error: ${res.error || 'Failed to enable notifications'}`);
+        }
+      }
+    } finally {
+      setIsSubscribing(false);
+    }
+  };
+
+  const handleTestNotification = async () => {
+    setTestMessage(null);
+    const sent = await pushManager.sendTestNotification();
+    if (sent) {
+      setTestMessage("Test notification sent!");
+    } else {
+      setTestMessage("Failed to send test notification. Check permissions.");
+    }
+  };
+
+  const handleTestIncomingCall = async () => {
+    setTestMessage(null);
+    const sent = await pushManager.sendTestNotification();
+    if (sent) {
+      setTestMessage("Incoming call notification simulated!");
+    } else {
+      setTestMessage("Failed to simulate incoming call push.");
+    }
+  };
+
+  const handleRequestMediaPermissions = async () => {
+    const res = await requestMediaPermissions();
+    if (res.success) {
+      setMicState('granted');
+      setCamState('granted');
+      setTestMessage("Camera and Microphone permissions granted!");
+    } else {
+      setMicState('denied');
+      setCamState('denied');
+      setTestMessage("Permissions denied by browser. Please enable them in site settings.");
+    }
   };
 
   return (
@@ -115,6 +202,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Feedback Message Toast */}
+        {testMessage && (
+          <div className="mb-3 p-2.5 rounded-xl bg-teal-950/80 border border-teal-500/40 text-xs text-teal-200 text-center animate-fade-in">
+            {testMessage}
+          </div>
+        )}
 
         {/* Settings Navigation List */}
         <div className="space-y-2.5">
@@ -233,6 +327,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
             </svg>
           </button>
+          {activeTab === "permissions" && (
+            <div className="p-3.5 rounded-xl bg-slate-900/90 border border-blue-500/30 text-xs text-slate-300 space-y-3">
+              <div className="flex items-center justify-between">
+                <span>Microphone Permission:</span>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${micState === 'granted' ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/30' : 'bg-rose-950 text-rose-300 border border-rose-500/30'}`}>
+                  {micState.toUpperCase()}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Camera Permission:</span>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${camState === 'granted' ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/30' : 'bg-rose-950 text-rose-300 border border-rose-500/30'}`}>
+                  {camState.toUpperCase()}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleRequestMediaPermissions}
+                className="w-full py-2 bg-blue-600/30 hover:bg-blue-600/50 text-blue-200 border border-blue-500/40 rounded-lg font-semibold transition-all cursor-pointer"
+              >
+                Request Camera & Mic Permissions
+              </button>
+            </div>
+          )}
 
           {/* Item 5: Notifications */}
           <button
@@ -248,13 +365,65 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
               <div className="text-left">
                 <h3 className="text-xs font-bold text-white">Notifications</h3>
-                <p className="text-[11px] text-slate-400">Manage private notifications</p>
+                <p className="text-[11px] text-slate-400">Manage Web Push & call alerts</p>
               </div>
             </div>
             <svg className="w-4 h-4 text-slate-400 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
             </svg>
           </button>
+          {activeTab === "notifications" && (
+            <div className="p-3.5 rounded-xl bg-slate-900/90 border border-amber-500/30 text-xs text-slate-300 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-semibold text-white">Notification Permission</p>
+                  <p className="text-[10px] text-slate-400">Status: {pushStatus}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleTogglePush}
+                  disabled={isSubscribing}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    pushEnabled
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                      : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                  }`}
+                >
+                  {isSubscribing ? 'Updating...' : pushEnabled ? 'Enabled' : 'Enable'}
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between pt-2 border-t border-slate-800">
+                <span>Incoming Call Alerts</span>
+                <button
+                  type="button"
+                  onClick={() => setIncomingCallNotifications(!incomingCallNotifications)}
+                  className={`w-10 h-5 rounded-full p-0.5 transition-colors cursor-pointer ${
+                    incomingCallNotifications ? 'bg-emerald-500' : 'bg-slate-700'
+                  }`}
+                >
+                  <div className={`w-4 h-4 rounded-full bg-white transition-transform ${incomingCallNotifications ? 'translate-x-5' : 'translate-x-0'}`} />
+                </button>
+              </div>
+
+              <div className="flex gap-2 pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={handleTestNotification}
+                  className="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-[11px] font-semibold transition-all cursor-pointer"
+                >
+                  Test Notification
+                </button>
+                <button
+                  type="button"
+                  onClick={handleTestIncomingCall}
+                  className="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-[11px] font-semibold transition-all cursor-pointer"
+                >
+                  Test Incoming Call
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Item 6: Security */}
           <button
@@ -277,6 +446,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
             </svg>
           </button>
+          {activeTab === "security" && (
+            <div className="p-3.5 rounded-xl bg-slate-900/90 border border-teal-500/30 text-xs text-slate-300 space-y-1">
+              <p className="text-teal-300 font-semibold">DTLS-SRTP & WSS Authenticated</p>
+              <p className="text-slate-400 text-[10px]">WebRTC media streams are encrypted with DTLS-SRTP. Ephemeral signaling is authenticated via ECDSA signatures.</p>
+            </div>
+          )}
 
           {/* Item 7: Reset / Unpair */}
           <button

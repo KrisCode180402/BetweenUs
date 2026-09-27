@@ -13,6 +13,8 @@ import { buildRtcConfiguration } from "./ice";
 import { getPairedPartner } from "../pairing";
 import { getPublicIdentity } from "../crypto/identity";
 import { cleanupCallSession } from "./cleanup";
+import { ringtoneManager } from "../sound/ringtone";
+import { pushManager } from "../push/push-manager";
 
 export class AudioCallManager {
   private stateMachine = new CallStateMachine();
@@ -127,17 +129,21 @@ export class AudioCallManager {
           };
           this.dispatchEvent(CallEvent.INCOMING_OFFER);
           this.startRingingTimeout();
+          ringtoneManager.playIncomingRingtone();
         }
       },
       onCallAccept: (_payload) => {
         this.clearRingingTimeout();
+        ringtoneManager.stopAll();
       },
       onCallDecline: (_payload) => {
         this.clearAllTimers();
+        ringtoneManager.stopAll();
         this.endCall();
       },
       onCallCancel: (_payload) => {
         this.clearAllTimers();
+        ringtoneManager.stopAll();
         this.endCall();
       },
       onSdpOffer: async (payload) => {
@@ -235,9 +241,20 @@ export class AudioCallManager {
         await this.supabaseSignaling.sendCallInvite(this.options.sessionId, callType);
       }
 
+      // Trigger Web Push notification if partner device is backgrounded
+      if (pairedPartner && (pairedPartner as any).id) {
+        pushManager.sendIncomingCallPush(
+          (pairedPartner as any).id,
+          this.options.sessionId,
+          callType,
+          this.options.partnerIdentity?.fingerprint || "Partner"
+        ).catch(() => {});
+      }
+
       this.clearInitiationTimeout();
       this.dispatchEvent(CallEvent.OFFER_SENT);
       this.startRingingTimeout();
+      ringtoneManager.playOutgoingRingtone();
     } catch (err: any) {
       this.handleFailure(err.message || `Failed to initiate ${callType} call.`);
     }
@@ -617,6 +634,7 @@ export class AudioCallManager {
 
   private cleanupAndEnd(): void {
     this.clearAllTimers();
+    ringtoneManager.stopAll();
 
     if (this.pcManager) {
       const pc = this.pcManager.getPeerConnection();
