@@ -23,9 +23,7 @@ export const LanguageSelector: React.FC = () => {
 
   const languages = [
     { code: "en", label: "English" },
-    { code: "es", label: "Español" },
-    { code: "fr", label: "Français" },
-    { code: "de", label: "Deutsch" },
+    { code: "fil", label: "Filipino" },
   ];
 
   return (

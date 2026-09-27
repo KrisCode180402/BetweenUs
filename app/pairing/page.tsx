@@ -45,17 +45,29 @@ export default function PairingPage() {
   }
 
   return (
-    <div className="relative w-full min-h-screen bg-[#040814] text-white flex flex-col items-center justify-between p-4 sm:p-6 overflow-x-hidden font-outfit select-none">
-      {/* Ambient Background Radial Glows */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-96 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-teal-500/15 via-sky-900/10 to-transparent pointer-events-none" />
-      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-96 bg-[radial-gradient(ellipse_at_bottom,_var(--tw-gradient-stops))] from-emerald-500/15 via-blue-950/20 to-transparent pointer-events-none" />
+    <div className="relative w-full min-h-screen bg-[#040814] text-white flex flex-col items-center justify-between p-4 sm:p-6 overflow-hidden font-outfit select-none">
+      
+      {/* Full-Screen Romantic Background Artwork (Starry Sky + Sunset Couple Lake) */}
+      <div className="absolute inset-0 w-full h-full z-0 overflow-hidden pointer-events-none">
+        <Image
+          src="/images/background-person.png"
+          alt="Starry night sky and couple sunset background"
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover object-center w-full h-full"
+        />
+        {/* Soft Atmospheric Gradient Overlays for High Legibility */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#040814]/80 via-[#040814]/25 to-[#040814]/95" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-teal-500/10 via-transparent to-[#040814]/60" />
+      </div>
 
       {/* Main Mobile App Container */}
       <div className="relative w-full max-w-md mx-auto min-h-[92vh] flex flex-col justify-between pt-2 pb-6 z-10">
         
         {/* Top Control Area */}
         <div className="w-full flex items-center justify-between pt-1">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-900/60 border border-slate-800 text-[10px] text-slate-400 font-mono">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-900/70 border border-slate-700/60 text-[10px] text-slate-300 font-mono backdrop-blur-md">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             <span>ENCRYPTED P2P</span>
           </div>
@@ -63,26 +75,15 @@ export default function PairingPage() {
         </div>
 
         {/* Branding & Subtitle */}
-        <div className="w-full my-3">
+        <div className="w-full my-2 sm:my-3">
           <PairingHeader />
         </div>
 
         {/* 3 Feature Pills: Voice Calls, Video Calls, Private & Secure */}
         <FeatureBadges />
 
-        {/* Center Romantic Artwork Card */}
-        <div className="relative w-full h-44 sm:h-52 rounded-3xl overflow-hidden border border-slate-800/80 shadow-2xl my-2 group">
-          <Image
-            src="/images/background-person.png"
-            alt="Romantic couple sitting together watching sunset over lake"
-            fill
-            sizes="(max-width: 640px) 100vw, 448px"
-            className="object-cover object-center group-hover:scale-105 transition-transform duration-700"
-            priority
-          />
-          {/* Subtle Top & Bottom Gradient Blends */}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#040814] via-transparent to-[#040814]/40" />
-        </div>
+        {/* Flexible Middle Spacer showing the Romantic Sunset Couple Artwork */}
+        <div className="w-full flex-1 min-h-[120px] sm:min-h-[160px]" />
 
         {/* Primary Action Controls */}
         <div className="w-full space-y-3 pt-2">
@@ -92,7 +93,7 @@ export default function PairingPage() {
             type="button"
             onClick={() => setActiveModal("generate")}
             aria-label="Generate Pairing Code"
-            className="w-full py-4 px-5 rounded-full bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 hover:from-emerald-400 hover:via-teal-400 hover:to-emerald-500 text-white font-semibold text-sm sm:text-base tracking-wide flex items-center justify-between shadow-[0_0_25px_rgba(16,185,129,0.35)] hover:shadow-[0_0_30px_rgba(16,185,129,0.5)] border border-emerald-400/40 cursor-pointer transition-all duration-300 active:scale-[0.98] group"
+            className="w-full py-4 px-5 rounded-full bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 hover:from-emerald-400 hover:via-teal-400 hover:to-emerald-500 text-white font-semibold text-sm sm:text-base tracking-wide flex items-center justify-between shadow-[0_0_25px_rgba(16,185,129,0.4)] hover:shadow-[0_0_35px_rgba(16,185,129,0.6)] border border-emerald-400/40 cursor-pointer transition-all duration-300 active:scale-[0.98] group"
           >
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-white/20 border border-white/30 flex items-center justify-center text-white flex-shrink-0 group-hover:scale-110 transition-transform">
@@ -112,7 +113,7 @@ export default function PairingPage() {
             type="button"
             onClick={() => setActiveModal("enter")}
             aria-label="Enter Pairing Code"
-            className="w-full py-4 px-5 rounded-full bg-gradient-to-r from-sky-950/90 via-slate-900/90 to-blue-950/90 hover:from-sky-900 hover:via-slate-800 hover:to-blue-900 text-white font-semibold text-sm sm:text-base tracking-wide flex items-center justify-between border border-sky-500/40 hover:border-sky-400 shadow-[0_0_20px_rgba(56,189,248,0.2)] hover:shadow-[0_0_25px_rgba(56,189,248,0.35)] cursor-pointer transition-all duration-300 active:scale-[0.98] group"
+            className="w-full py-4 px-5 rounded-full bg-gradient-to-r from-sky-950/90 via-slate-900/90 to-blue-950/90 hover:from-sky-900 hover:via-slate-800 hover:to-blue-900 text-white font-semibold text-sm sm:text-base tracking-wide flex items-center justify-between border border-sky-500/40 hover:border-sky-400 shadow-[0_0_20px_rgba(56,189,248,0.25)] hover:shadow-[0_0_28px_rgba(56,189,248,0.4)] backdrop-blur-md cursor-pointer transition-all duration-300 active:scale-[0.98] group"
           >
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-sky-500/20 border border-sky-400/40 flex items-center justify-center text-sky-400 flex-shrink-0 group-hover:scale-110 transition-transform">
