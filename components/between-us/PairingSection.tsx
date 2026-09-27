@@ -23,6 +23,7 @@ export const PairingSection: React.FC<PairingSectionProps> = ({
   onPairingStatusChange,
 }) => {
   const [partnerRecord, setPartnerRecord] = useState<PairedPartnerRecord | null>(null);
+  const [isInitializing, setIsInitializing] = useState<boolean>(true);
   const [deviceName, setDeviceName] = useState<string>("My Device");
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
   const [inputCode, setInputCode] = useState<string>("");
@@ -54,6 +55,8 @@ export const PairingSection: React.FC<PairingSectionProps> = ({
         }
       } catch (err: any) {
         console.warn("Pairing init error:", err);
+      } finally {
+        setIsInitializing(false);
       }
     }
     init();
@@ -193,6 +196,20 @@ export const PairingSection: React.FC<PairingSectionProps> = ({
   };
 
   const partnerName = (partnerRecord as any)?.partnerName || "Your Partner";
+
+  // If initializing identity/partner status, show smooth loading skeleton
+  if (isInitializing) {
+    return (
+      <div className="w-full bg-[#081325]/60 border border-slate-800/80 rounded-2xl p-5 text-center shadow-xl backdrop-blur-xl animate-pulse">
+        <div className="flex items-center justify-center gap-2 mb-2">
+          <div className="w-2.5 h-2.5 rounded-full bg-teal-500/40" />
+          <div className="h-3 w-28 bg-slate-800 rounded-md" />
+        </div>
+        <div className="h-4 w-40 bg-slate-800/60 rounded-md mx-auto my-3" />
+        <div className="h-2.5 w-56 bg-slate-800/40 rounded-md mx-auto" />
+      </div>
+    );
+  }
 
   // If already paired
   if (partnerRecord) {

@@ -5,11 +5,11 @@ const isProd = process.env.NODE_ENV === "production";
 // Strict Content Security Policy
 const cspHeader = `
   default-src 'none';
-  script-src 'self' ${isProd ? "" : "'unsafe-inline' 'unsafe-eval'"};
+  script-src 'self' 'unsafe-inline' 'unsafe-eval';
   style-src 'self' 'unsafe-inline';
   img-src 'self' data: blob:;
   media-src 'self' blob:;
-  connect-src 'self' wss://signaling.betweenus.app https://turn.betweenus.app ${isProd ? "" : "ws: wss: http: https:"};
+  connect-src 'self' wss://signaling.betweenus.app https://turn.betweenus.app https://*.supabase.co wss://*.supabase.co ${isProd ? "" : "ws: wss: http: https:"};
   font-src 'self' data:;
   frame-ancestors 'none';
   base-uri 'self';

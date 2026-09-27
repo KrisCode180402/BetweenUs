@@ -57,8 +57,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`dark ${outfit.variable} ${caveat.variable}`}>
-      <body className="antialiased bg-[#060B14] text-gray-100 font-outfit selection:bg-teal-500 selection:text-white min-h-screen">
+    <html lang="en" suppressHydrationWarning className={`dark ${outfit.variable} ${caveat.variable}`}>
+      <body suppressHydrationWarning className="antialiased bg-[#060B14] text-gray-100 font-outfit selection:bg-teal-500 selection:text-white min-h-screen">
         <ErrorBoundary>
           <main className="min-h-screen flex flex-col items-center justify-center">
             {children}

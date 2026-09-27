@@ -61,7 +61,25 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 3. For icons and manifest, use Cache-First
+  // 3. For navigation requests, use Network-First with Cache Fallback for PWA offline support
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            const cacheCopy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put('/', cacheCopy));
+          }
+          return response;
+        })
+        .catch(() => {
+          return caches.match('/').then((cached) => cached || fetch(request));
+        })
+    );
+    return;
+  }
+
+  // 4. For icons and manifest, use Cache-First
   if (STATIC_ASSETS.includes(url.pathname)) {
     event.respondWith(
       caches.match(request).then((cached) => {
@@ -70,9 +88,6 @@ self.addEventListener('fetch', (event) => {
     );
     return;
   }
-
-  // 4. Default: Network-Only for dynamic navigation & page loads
-  return;
 });
 
 // Skip waiting signal

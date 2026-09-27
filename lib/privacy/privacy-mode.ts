@@ -86,6 +86,16 @@ class PrivacyModeManager {
       cleanupStatus = cleanupCallSession({});
     }
 
+    if (typeof window !== "undefined" && "caches" in window) {
+      try {
+        caches.keys().then((keys) => {
+          for (const key of keys) {
+            caches.delete(key);
+          }
+        });
+      } catch {}
+    }
+
     this.setState("SAFE_HOME");
     return cleanupStatus;
   }
