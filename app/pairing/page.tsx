@@ -55,7 +55,7 @@ export default function PairingPage() {
           fill
           priority
           sizes="100vw"
-          className="object-cover object-[center_28%] w-full h-full"
+          className="object-cover object-[center_18%] w-full h-full"
         />
         {/* Soft Ambient Overlay for Optimal Legibility while Keeping Sunset & Couple Crisp */}
         <div className="absolute inset-0 bg-gradient-to-b from-[#040814]/30 via-transparent to-[#040814]/85" />

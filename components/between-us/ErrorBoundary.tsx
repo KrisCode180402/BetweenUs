@@ -54,9 +54,12 @@ export class ErrorBoundary extends Component<Props, State> {
     if (
       msg.includes("Connection closed") ||
       msg.includes("WebSocket") ||
-      msg.includes("CHANNEL_ERROR")
+      msg.includes("CHANNEL_ERROR") ||
+      msg.includes("Cannot read properties of undefined") ||
+      msg.includes("Loading chunk") ||
+      msg.includes("HMR")
     ) {
-      // Auto recover from transient connection disconnects without leaving blank screen
+      // Auto recover from transient dev server / HMR / connection disconnects
       setTimeout(() => {
         this.setState({ hasError: false, error: null });
       }, 100);

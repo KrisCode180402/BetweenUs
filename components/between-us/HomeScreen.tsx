@@ -70,7 +70,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           fill
           priority
           sizes="100vw"
-          className="object-cover object-[center_30%] w-full h-full"
+          className="object-cover object-[center_18%] w-full h-full"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-[#040814]/40 via-transparent to-[#040814]/90" />
       </div>
