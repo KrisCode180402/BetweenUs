@@ -113,7 +113,15 @@ export class AudioCallManager {
    */
   private async setupSupabaseSignaling(): Promise<SupabaseSignalingClient> {
     const pairedPartner = await getPairedPartner();
-    if (pairedPartner) {
+    const identity = getPublicIdentity();
+    const myFingerprint = identity?.fingerprint || this.localUserId;
+    const partnerFingerprint =
+      pairedPartner?.partnerPublicIdentity?.fingerprint ||
+      this.options.partnerIdentity?.fingerprint;
+
+    if (myFingerprint && partnerFingerprint) {
+      this.coupleId = [myFingerprint, partnerFingerprint].sort().join("_");
+    } else if (pairedPartner) {
       this.coupleId = (pairedPartner as any).coupleId || pairedPartner.id || "partner_trust";
     }
 
@@ -270,7 +278,15 @@ export class AudioCallManager {
     if (!pairedPartner) {
       return;
     }
-    this.coupleId = (pairedPartner as any).coupleId || pairedPartner.id;
+    const identity = getPublicIdentity();
+    const myFingerprint = identity?.fingerprint || this.localUserId;
+    const partnerFingerprint = pairedPartner.partnerPublicIdentity?.fingerprint;
+
+    if (myFingerprint && partnerFingerprint) {
+      this.coupleId = [myFingerprint, partnerFingerprint].sort().join("_");
+    } else {
+      this.coupleId = (pairedPartner as any).coupleId || pairedPartner.id;
+    }
     if (!this.coupleId) return;
 
     this.supabaseSignaling = new SupabaseSignalingClient(this.coupleId, this.localUserId, {

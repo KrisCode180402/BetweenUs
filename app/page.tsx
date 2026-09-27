@@ -1,279 +1,52 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { HomeScreen } from "@/components/between-us/HomeScreen";
-import { CallScreen } from "@/components/between-us/CallScreen";
-import { EndCallScreen } from "@/components/between-us/EndCallScreen";
-import { ErrorState } from "@/components/between-us/ErrorState";
-import { IncomingCallModal } from "@/components/between-us/IncomingCallModal";
-import { ConnectionCallState } from "@/components/between-us/ConnectionStatus";
-import { AudioCallManager } from "@/lib/webrtc/call-manager";
-import { CallState, CallType, IncomingCallInvitation } from "@/lib/webrtc/types";
-import { privacyModeManager } from "@/lib/privacy/privacy-mode";
+import { loadPairedPartner } from "@/lib/pairing/partner-store";
 
 export default function BetweenUsApp() {
-  const [callState, setCallState] = useState<CallState>(CallState.IDLE);
-  const [callType, setCallType] = useState<CallType>("audio");
-  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
-  const [isMuted, setIsMuted] = useState(false);
-  const [isVideoOff, setIsVideoOff] = useState(false);
-  const [isScreenSharing, setIsScreenSharing] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [incomingCall, setIncomingCall] = useState<IncomingCallInvitation | null>(null);
+  const router = useRouter();
+  const [isCheckingPairing, setIsCheckingPairing] = useState(true);
 
-  const callManagerRef = useRef<AudioCallManager | null>(null);
-
-  const initializeCallManager = useCallback(() => {
-    if (!callManagerRef.current) {
-      callManagerRef.current = new AudioCallManager(
-        {
-          serverUrl: process.env.NEXT_PUBLIC_SIGNALING_SERVER_URL || "wss://signaling.betweenus.app",
-          sessionId: `call_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-          partnerIdentity: {
-            fingerprint: "partner_device_fingerprint",
-            spkiHex: "partner_spki_hex",
-            algorithm: "ECDSA-P256",
-            createdAt: Date.now(),
-          },
-        },
-        {
-          onCallStateChange: (state) => {
-            setCallState(state);
-          },
-          onLocalStream: (stream) => {
-            setLocalStream(stream);
-          },
-          onRemoteStream: (stream) => {
-            setRemoteStream(stream);
-          },
-          onMuteChange: (muted) => {
-            setIsMuted(muted);
-          },
-          onCameraChange: (cameraOff) => {
-            setIsVideoOff(cameraOff);
-          },
-          onError: (err) => {
-            if (
-              err &&
-              !err.includes("Connection closed") &&
-              !err.includes("WebSocket") &&
-              !err.includes("CHANNEL_ERROR")
-            ) {
-              setErrorMessage(err);
-            } else {
-              console.warn("Background call manager connection notice:", err);
-            }
-          },
-        }
-      );
-    }
-    return callManagerRef.current;
-  }, []);
-
-  // Listen for incoming call invitations on client mount
   useEffect(() => {
-    try {
-      const manager = initializeCallManager();
-      manager.listenForIncomingCall((invitation) => {
-        setIncomingCall(invitation);
-      }).catch(() => {});
-    } catch (err) {
-      console.warn("Call manager init warning:", err);
-    }
-
-    // Clean up media tracks and peer connection on page refresh / tab close
-    const handleBeforeUnload = () => {
-      if (callManagerRef.current) {
-        callManagerRef.current.endCall();
-      }
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-      if (callManagerRef.current) {
-        callManagerRef.current.endCall();
-      }
-    };
-  }, [initializeCallManager]);
-
-  const handleStartAudioCall = async () => {
-    privacyModeManager.reset();
-    setErrorMessage(null);
-    setCallType("audio");
-    setIsVideoOff(true);
-
-    try {
-      const manager = initializeCallManager();
-      await manager.startCall("audio");
-    } catch (err: any) {
-      setErrorMessage(err.message || "Failed to start audio call. Please check microphone permissions.");
-    }
-  };
-
-  const handleStartVideoCall = async () => {
-    privacyModeManager.reset();
-    setErrorMessage(null);
-    setCallType("video");
-    setIsVideoOff(false);
-
-    try {
-      const manager = initializeCallManager();
-      await manager.startCall("video");
-    } catch (err: any) {
-      setErrorMessage(err.message || "Failed to start video call. Please check camera and microphone permissions.");
-    }
-  };
-
-  const handleAcceptCall = async () => {
-    if (!incomingCall) return;
-    setIncomingCall(null);
-    privacyModeManager.reset();
-    setErrorMessage(null);
-
-    try {
-      const manager = initializeCallManager();
-      await manager.acceptCall();
-    } catch (err: any) {
-      setErrorMessage(err.message || "Failed to accept incoming call.");
-    }
-  };
-
-  const handleDeclineCall = () => {
-    if (callManagerRef.current) {
-      callManagerRef.current.declineCall();
-    }
-    setIncomingCall(null);
-  };
-
-  const handleEndCall = () => {
-    if (callManagerRef.current) {
-      callManagerRef.current.endCall();
-    }
-    setLocalStream(null);
-    setRemoteStream(null);
-    setIsScreenSharing(false);
-  };
-
-  const handleEmergencyExit = () => {
-    privacyModeManager.activateEmergencyExit();
-    handleEndCall();
-  };
-
-  const handleToggleMute = () => {
-    if (callManagerRef.current) {
-      const muted = callManagerRef.current.toggleMute();
-      setIsMuted(muted);
-    }
-  };
-
-  const handleToggleVideo = () => {
-    if (callManagerRef.current) {
-      const videoOff = callManagerRef.current.toggleCamera();
-      setIsVideoOff(videoOff);
-    }
-  };
-
-  const handleToggleScreenShare = async () => {
-    if (callManagerRef.current) {
+    async function checkPairingStatus() {
       try {
-        const sharing = await callManagerRef.current.toggleScreenShare();
-        setIsScreenSharing(sharing);
-      } catch (err: any) {
-        setErrorMessage(err.message || "Screen sharing failed.");
+        const partner = await loadPairedPartner();
+        if (!partner) {
+          router.push("/pairing");
+        } else {
+          setIsCheckingPairing(false);
+        }
+      } catch {
+        router.push("/pairing");
       }
     }
+    checkPairingStatus();
+  }, [router]);
+
+  const handleStartAudioCall = () => {
+    router.push("/call/audio");
   };
 
-  const handleSwitchCamera = async () => {
-    if (callManagerRef.current) {
-      await callManagerRef.current.switchCamera();
-    }
+  const handleStartVideoCall = () => {
+    router.push("/call/video");
   };
 
-  const mapCallStateToConnectionStatus = (state: CallState): ConnectionCallState => {
-    switch (state) {
-      case CallState.OUTGOING_INITIATING:
-      case CallState.OUTGOING_RINGING:
-        return "Ringing";
-      case CallState.ACCEPTING:
-      case CallState.NEGOTIATING:
-      case CallState.CONNECTING:
-        return "Connecting";
-      case CallState.CONNECTED:
-        return "Connected";
-      case CallState.RECONNECTING:
-        return "Reconnecting";
-      case CallState.ENDING:
-        return "Ending";
-      default:
-        return "Connected";
-    }
-  };
-
-  const isCallActive =
-    callState === CallState.OUTGOING_INITIATING ||
-    callState === CallState.OUTGOING_RINGING ||
-    callState === CallState.INCOMING_RINGING ||
-    callState === CallState.ACCEPTING ||
-    callState === CallState.NEGOTIATING ||
-    callState === CallState.CONNECTING ||
-    callState === CallState.CONNECTED ||
-    callState === CallState.RECONNECTING ||
-    callState === CallState.ENDING;
+  if (isCheckingPairing) {
+    return (
+      <div className="w-full min-h-screen bg-[#040814] flex flex-col items-center justify-center p-6 text-center select-none font-outfit">
+        <div className="w-10 h-10 rounded-full border-3 border-teal-400 border-t-transparent animate-spin mb-3" />
+        <p className="text-xs font-mono text-slate-400 animate-pulse">Loading Between Us...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="w-full flex flex-col items-center justify-center min-h-[90vh] py-4 px-2 sm:px-4">
-      {/* Incoming Call Overlay Modal */}
-      {incomingCall && (
-        <IncomingCallModal
-          callerName="Your Partner"
-          callType={incomingCall.callType}
-          onAccept={handleAcceptCall}
-          onDecline={handleDeclineCall}
-        />
-      )}
-
-      {/* Main UI State Routing based on actual WebRTC Call Lifecycle */}
-      {errorMessage ? (
-        <ErrorState
-          title="CALL ERROR"
-          message={errorMessage}
-          onRetry={callType === "video" ? handleStartVideoCall : handleStartAudioCall}
-          onReturnHome={() => {
-            setErrorMessage(null);
-            setCallState(CallState.IDLE);
-          }}
-        />
-      ) : isCallActive ? (
-        <CallScreen
-          type={callType}
-          callState={mapCallStateToConnectionStatus(callState)}
-          localStream={localStream}
-          remoteStream={remoteStream}
-          isMuted={isMuted}
-          isVideoOff={isVideoOff}
-          isScreenSharing={isScreenSharing}
-          onToggleMute={handleToggleMute}
-          onToggleVideo={handleToggleVideo}
-          onToggleScreenShare={handleToggleScreenShare}
-          onSwitchCamera={handleSwitchCamera}
-          onEmergencyExit={handleEmergencyExit}
-          onEndCall={handleEndCall}
-        />
-      ) : callState === CallState.ENDED || callState === CallState.CANCELLED || callState === CallState.REJECTED ? (
-        <EndCallScreen
-          onReturnHome={() => {
-            setCallState(CallState.IDLE);
-          }}
-        />
-      ) : (
-        <HomeScreen
-          onInitiateAudioCall={handleStartAudioCall}
-          onInitiateVideoCall={handleStartVideoCall}
-        />
-      )}
-    </div>
+    <HomeScreen
+      onInitiateAudioCall={handleStartAudioCall}
+      onInitiateVideoCall={handleStartVideoCall}
+    />
   );
 }
+
