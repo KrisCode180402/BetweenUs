@@ -34,6 +34,9 @@ export const PairingSection: React.FC<PairingSectionProps> = ({
   const [copied, setCopied] = useState<boolean>(false);
 
   const onPairingStatusChangeRef = useRef(onPairingStatusChange);
+  const sessionUnsubRef = useRef<(() => void) | null>(null);
+  const responseUnsubRef = useRef<(() => void) | null>(null);
+
   useEffect(() => {
     onPairingStatusChangeRef.current = onPairingStatusChange;
   }, [onPairingStatusChange]);
@@ -60,20 +63,38 @@ export const PairingSection: React.FC<PairingSectionProps> = ({
       }
     }
     init();
+
+    return () => {
+      if (sessionUnsubRef.current) sessionUnsubRef.current();
+      if (responseUnsubRef.current) responseUnsubRef.current();
+    };
   }, []);
+
+  // Clean subscriptions when state resets
+  const clearSubscriptions = () => {
+    if (sessionUnsubRef.current) {
+      sessionUnsubRef.current();
+      sessionUnsubRef.current = null;
+    }
+    if (responseUnsubRef.current) {
+      responseUnsubRef.current();
+      responseUnsubRef.current = null;
+    }
+  };
 
   // Handle generating a new pairing code (Device A)
   const handleGenerateCode = async (): Promise<void> => {
     setErrorMessage(null);
     setStatusMessage(null);
     setIsSubmitting(true);
+    clearSubscriptions();
 
     try {
       const session = await createPairingSession(deviceName);
       setGeneratedCode(session.pairingCode);
 
       // Subscribe to Realtime pairing requests on Device A
-      subscribeToPairingSession(session.sessionId, {
+      sessionUnsubRef.current = subscribeToPairingSession(session.sessionId, {
         onRequestReceived: (req) => {
           setIncomingRequest(req);
         },
@@ -82,7 +103,7 @@ export const PairingSection: React.FC<PairingSectionProps> = ({
           setPartnerRecord(updatedPartner);
           setGeneratedCode(null);
           setIncomingRequest(null);
-          onPairingStatusChange?.(true);
+          onPairingStatusChangeRef.current?.(true);
         },
         onRejected: () => {
           setErrorMessage("Pairing request was declined by the recipient.");
@@ -110,6 +131,7 @@ export const PairingSection: React.FC<PairingSectionProps> = ({
     setErrorMessage(null);
     setStatusMessage(null);
     setIsSubmitting(true);
+    clearSubscriptions();
 
     try {
       const result = await submitPairingCode(inputCode.trim(), deviceName);
@@ -119,16 +141,16 @@ export const PairingSection: React.FC<PairingSectionProps> = ({
         return;
       }
 
-      setStatusMessage(`Pairing request sent to ${result.initiatorName || "initiator device"}. Waiting for approval...`);
+      setStatusMessage(`Pairing request sent to ${result.initiatorName || "partner device"}. Waiting for approval...`);
 
       // Subscribe to approval updates on Device B
       if (result.sessionId) {
-        subscribeToPairingResponse(result.sessionId, {
+        responseUnsubRef.current = subscribeToPairingResponse(result.sessionId, {
           onAccepted: async () => {
             const partner = await loadPairedPartner();
             setPartnerRecord(partner);
             setStatusMessage(null);
-            onPairingStatusChange?.(true);
+            onPairingStatusChangeRef.current?.(true);
           },
           onRejected: () => {
             setErrorMessage("Pairing request was declined by the recipient device.");
@@ -158,7 +180,8 @@ export const PairingSection: React.FC<PairingSectionProps> = ({
         setPartnerRecord(partner);
         setIncomingRequest(null);
         setGeneratedCode(null);
-        onPairingStatusChange?.(true);
+        clearSubscriptions();
+        onPairingStatusChangeRef.current?.(true);
       }
     } catch (err: any) {
       setErrorMessage(err.message || "Failed to accept pairing request.");
@@ -175,6 +198,7 @@ export const PairingSection: React.FC<PairingSectionProps> = ({
     } catch {}
     setIncomingRequest(null);
     setGeneratedCode(null);
+    clearSubscriptions();
   };
 
   // Copy code helper
@@ -191,13 +215,14 @@ export const PairingSection: React.FC<PairingSectionProps> = ({
     if (window.confirm("Are you sure you want to unpair this device? You will need to enter a new code to connect again.")) {
       await unpairCurrentDevice();
       setPartnerRecord(null);
-      onPairingStatusChange?.(false);
+      clearSubscriptions();
+      onPairingStatusChangeRef.current?.(false);
     }
   };
 
   const partnerName = (partnerRecord as any)?.partnerName || "Your Partner";
 
-  // If initializing identity/partner status, show smooth loading skeleton
+  // Loading skeleton
   if (isInitializing) {
     return (
       <div className="w-full bg-[#081325]/60 border border-slate-800/80 rounded-2xl p-5 text-center shadow-xl backdrop-blur-xl animate-pulse">
@@ -250,12 +275,16 @@ export const PairingSection: React.FC<PairingSectionProps> = ({
 
   return (
     <div className="w-full space-y-4">
-      {/* Incoming Pairing Request Modal */}
+      {/* Incoming Pairing Request Approval Modal (Device A) */}
       {incomingRequest && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="w-full max-w-sm bg-[#0A1220] border border-teal-500/40 rounded-3xl p-6 text-center space-y-5 shadow-2xl animate-fade-in">
-            <div className="w-12 h-12 mx-auto rounded-2xl bg-teal-500/20 border border-teal-400/40 flex items-center justify-center text-teal-400">
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-lg flex items-center justify-center p-4 animate-fade-in font-outfit select-none">
+          <div className="w-full max-w-sm bg-[#081224] border border-teal-400/60 rounded-3xl p-6 text-center space-y-5 shadow-[0_0_40px_rgba(20,184,166,0.3)] relative overflow-hidden">
+            {/* Ambient Pulse Glow */}
+            <div className="absolute -top-10 -left-10 w-28 h-28 bg-teal-500/20 rounded-full blur-2xl animate-pulse pointer-events-none" />
+            <div className="absolute -bottom-10 -right-10 w-28 h-28 bg-emerald-500/20 rounded-full blur-2xl animate-pulse pointer-events-none" />
+
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-teal-500/30 to-emerald-600/30 border border-teal-400/50 flex items-center justify-center text-teal-300 shadow-[0_0_20px_rgba(45,212,191,0.4)] animate-bounce-slow">
+              <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.318C10.4 2.8 8.1 2.3 6.3 3.8A4.5 4.5 0 004.3 10.2L12 18l7.7-7.8a4.5 4.5 0 00-2-6.4c-1.8-1.5-4.1-1-5.7.5z" />
               </svg>
             </div>
@@ -264,16 +293,16 @@ export const PairingSection: React.FC<PairingSectionProps> = ({
               <h3 className="text-lg font-bold text-white tracking-wide">
                 Pairing Request Received
               </h3>
-              <p className="text-xs text-slate-300 mt-1.5 leading-relaxed">
-                <strong className="text-teal-300 font-semibold">{incomingRequest.targetDeviceName}</strong> wants to connect with your Between Us account.
+              <p className="text-xs text-slate-300/90 mt-1.5 leading-relaxed">
+                <strong className="text-emerald-400 font-semibold text-sm">{incomingRequest.targetDeviceName}</strong> entered your code and wants to pair devices.
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 pt-1">
+            <div className="grid grid-cols-2 gap-3 pt-2">
               <button
                 type="button"
                 onClick={handleDeclineRequest}
-                className="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-all cursor-pointer"
+                className="w-full py-3.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700/80 text-slate-300 text-xs font-semibold transition-all cursor-pointer active:scale-95"
               >
                 Decline
               </button>
@@ -281,7 +310,7 @@ export const PairingSection: React.FC<PairingSectionProps> = ({
                 type="button"
                 onClick={handleAcceptRequest}
                 disabled={isSubmitting}
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white text-xs font-bold shadow-lg shadow-teal-500/20 transition-all cursor-pointer"
+                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white text-xs font-bold shadow-[0_0_20px_rgba(16,185,129,0.4)] border border-emerald-400/40 transition-all cursor-pointer active:scale-95 disabled:opacity-50"
               >
                 {isSubmitting ? "Connecting..." : "Accept"}
               </button>
@@ -290,11 +319,14 @@ export const PairingSection: React.FC<PairingSectionProps> = ({
         </div>
       )}
 
-      {/* Generated Code Modal / Banner */}
+      {/* Generated Code Active Card */}
       {generatedCode && !incomingRequest && (
         <div className="w-full bg-[#08182B] border border-teal-500/40 rounded-2xl p-4 sm:p-5 text-center space-y-3 shadow-xl backdrop-blur-xl">
           <div className="flex items-center justify-between text-xs text-slate-300">
-            <span className="font-semibold text-teal-300 uppercase tracking-wider">Pairing Code Active</span>
+            <span className="font-semibold text-teal-300 uppercase tracking-wider flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-teal-400 animate-ping" />
+              Pairing Code Active
+            </span>
             <span className="text-[10px] text-slate-400 font-mono">Expires in 10 mins</span>
           </div>
 
@@ -305,21 +337,24 @@ export const PairingSection: React.FC<PairingSectionProps> = ({
           </div>
 
           <p className="text-[11px] text-slate-300/90 leading-normal max-w-xs mx-auto">
-            Share this code with your partner to pair your devices. Waiting for partner to enter code...
+            Share this code with your partner device. Waiting for partner to submit code...
           </p>
 
           <div className="flex justify-center gap-3 pt-1">
             <button
               type="button"
               onClick={handleCopyCode}
-              className="px-4 py-2 rounded-xl bg-teal-500/20 hover:bg-teal-500/30 border border-teal-500/40 text-teal-300 text-xs font-semibold transition-all cursor-pointer"
+              className="px-4 py-2 rounded-xl bg-teal-500/20 hover:bg-teal-500/30 border border-teal-500/40 text-teal-300 text-xs font-semibold transition-all cursor-pointer active:scale-95"
             >
               {copied ? "Copied!" : "Copy Code"}
             </button>
             <button
               type="button"
-              onClick={() => setGeneratedCode(null)}
-              className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs font-medium transition-all cursor-pointer"
+              onClick={() => {
+                setGeneratedCode(null);
+                clearSubscriptions();
+              }}
+              className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs font-medium transition-all cursor-pointer active:scale-95"
             >
               Cancel
             </button>
@@ -340,13 +375,13 @@ export const PairingSection: React.FC<PairingSectionProps> = ({
           </div>
 
           {errorMessage && (
-            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs text-center">
+            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs text-center animate-fade-in">
               {errorMessage}
             </div>
           )}
 
           {statusMessage && (
-            <div className="p-3 rounded-xl bg-teal-500/10 border border-teal-500/30 text-teal-300 text-xs text-center">
+            <div className="p-3 rounded-xl bg-teal-500/10 border border-teal-500/30 text-teal-300 text-xs text-center animate-fade-in">
               {statusMessage}
             </div>
           )}

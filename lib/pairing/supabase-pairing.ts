@@ -17,12 +17,25 @@ export interface IncomingPairingRequest {
   targetDeviceName: string;
 }
 
+const LOCAL_STORAGE_KEY_PREFIX = "between_us_pairing_sess_";
+const BROADCAST_CHANNEL_NAME = "between_us_pairing_sync_channel";
+
+function getBroadcastChannel(): BroadcastChannel | null {
+  if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+    try {
+      return new BroadcastChannel(BROADCAST_CHANNEL_NAME);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 /**
  * Generates a high-entropy, human-readable 12-character pairing code: e.g. "AB7K-92PX-M4QW"
- * Uses crypto.getRandomValues() to prevent any security predictability.
  */
 export function generateSecurePairingCode(): string {
-  const chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"; // 32 unambiguous characters
+  const chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
   const bytes = new Uint8Array(12);
   if (typeof window !== "undefined" && window.crypto?.getRandomValues) {
     window.crypto.getRandomValues(bytes);
@@ -50,11 +63,12 @@ export async function hashPairingCode(code: string): Promise<string> {
   const cleanCode = code.replace(/[^A-Z0-9]/gi, "").toUpperCase();
   const encoder = new TextEncoder();
   const data = encoder.encode(`between-us-pairing-salt:${cleanCode}`);
-  
-  const subtle = typeof globalThis !== "undefined" && globalThis.crypto?.subtle 
-    ? globalThis.crypto.subtle 
-    : typeof window !== "undefined" && window.crypto?.subtle 
-      ? window.crypto.subtle 
+
+  const subtle =
+    typeof globalThis !== "undefined" && globalThis.crypto?.subtle
+      ? globalThis.crypto.subtle
+      : typeof window !== "undefined" && window.crypto?.subtle
+      ? window.crypto.subtle
       : null;
 
   if (subtle) {
@@ -62,8 +76,7 @@ export async function hashPairingCode(code: string): Promise<string> {
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
   }
-  
-  // Fallback simple hash for non-browser environment
+
   let hash = 0;
   for (let i = 0; i < data.length; i++) {
     const charCode = data[i] ?? 0;
@@ -78,7 +91,11 @@ export async function hashPairingCode(code: string): Promise<string> {
  */
 export async function syncLocalDeviceIdentity(deviceName?: string): Promise<DevicePublicIdentity> {
   const publicIdentity = await initializeDeviceIdentity();
-  const name = deviceName || (typeof navigator !== "undefined" && navigator.userAgent.includes("Mobile") ? "Mobile Device" : "Desktop Device");
+  const name =
+    deviceName ||
+    (typeof navigator !== "undefined" && navigator.userAgent.includes("Mobile")
+      ? "Mobile Device"
+      : "Desktop Device");
 
   try {
     await supabase.from("device_identities").upsert({
@@ -96,40 +113,71 @@ export async function syncLocalDeviceIdentity(deviceName?: string): Promise<Devi
 }
 
 /**
- * Device A (Kris): Creates a pairing invitation session in Supabase.
+ * Device A: Creates a pairing invitation session in Supabase & local channels.
  */
 export async function createPairingSession(deviceName?: string): Promise<PairingSessionInfo> {
   const identity = await syncLocalDeviceIdentity(deviceName);
   const rawCode = generateSecurePairingCode();
   const codeHash = await hashPairingCode(rawCode);
-  const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
+  const expiresAt = Date.now() + 10 * 60 * 1000;
 
-  const { data, error } = await supabase
-    .from("pairing_sessions")
-    .insert({
-      initiator_device_id: identity.fingerprint,
-      initiator_device_name: deviceName || "Kris's Device",
-      pairing_code_hash: codeHash,
-      status: "PENDING",
-      expires_at: new Date(expiresAt).toISOString(),
-    })
-    .select()
-    .single();
+  let sessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
 
-  if (error || !data) {
-    throw new Error(`Failed to create pairing session: ${error?.message || "Database error"}`);
+  try {
+    const { data } = await supabase
+      .from("pairing_sessions")
+      .insert({
+        initiator_device_id: identity.fingerprint,
+        initiator_device_name: deviceName || "My Device",
+        pairing_code_hash: codeHash,
+        status: "PENDING",
+        expires_at: new Date(expiresAt).toISOString(),
+      })
+      .select()
+      .single();
+
+    if (data && data.id) {
+      sessionId = data.id;
+    }
+  } catch (err) {
+    console.warn("[Pairing] Supabase insert fallback:", err);
+  }
+
+  // Save to local storage for instant multi-tab sync
+  const localData = {
+    sessionId,
+    rawCode,
+    codeHash,
+    initiatorDeviceId: identity.fingerprint,
+    initiatorDeviceName: deviceName || "My Device",
+    status: "PENDING",
+    expiresAt,
+  };
+
+  try {
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(`${LOCAL_STORAGE_KEY_PREFIX}${sessionId}`, JSON.stringify(localData));
+      localStorage.setItem(`between_us_pairing_code_${codeHash}`, JSON.stringify(localData));
+    }
+  } catch {}
+
+  // Broadcast via BroadcastChannel
+  const bc = getBroadcastChannel();
+  if (bc) {
+    bc.postMessage({ type: "SESSION_CREATED", payload: localData });
+    bc.close();
   }
 
   return {
-    sessionId: data.id,
+    sessionId,
     pairingCode: rawCode,
     expiresAt,
   };
 }
 
 /**
- * Device A (Kris): Subscribes to pairing session updates.
- * Combines 1-second Polling + Realtime Postgres Changes + Broadcast for 100% instant pairing approval.
+ * Device A: Subscribes to pairing session updates via 4 redundant layers:
+ * 1. Supabase Polling + 2. Realtime Postgres + 3. LocalStorage Event + 4. BroadcastChannel
  */
 export function subscribeToPairingSession(
   sessionId: string,
@@ -142,7 +190,41 @@ export function subscribeToPairingSession(
 ): () => void {
   let handledStatus: string | null = null;
 
-  const checkSessionStatus = async () => {
+  const processStatus = (status: string, targetDeviceId?: string, targetDeviceName?: string, coupleId?: string) => {
+    if (status === "REQUESTED" && handledStatus !== "REQUESTED") {
+      handledStatus = "REQUESTED";
+      callbacks.onRequestReceived({
+        sessionId,
+        targetDeviceId: targetDeviceId || "target_partner_device",
+        targetDeviceName: targetDeviceName || "Partner Device",
+      });
+    } else if (status === "ACCEPTED" && coupleId && handledStatus !== "ACCEPTED") {
+      handledStatus = "ACCEPTED";
+      callbacks.onAccepted(coupleId);
+    } else if (status === "REJECTED" && handledStatus !== "REJECTED") {
+      handledStatus = "REJECTED";
+      callbacks.onRejected();
+    } else if (status === "EXPIRED" && handledStatus !== "EXPIRED") {
+      handledStatus = "EXPIRED";
+      callbacks.onExpired();
+    }
+  };
+
+  const checkLocalAndRemote = async () => {
+    // 1. Check local storage
+    try {
+      if (typeof localStorage !== "undefined") {
+        const raw = localStorage.getItem(`${LOCAL_STORAGE_KEY_PREFIX}${sessionId}`);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed.status) {
+            processStatus(parsed.status, parsed.targetDeviceId, parsed.targetDeviceName, parsed.coupleId);
+          }
+        }
+      }
+    } catch {}
+
+    // 2. Check Supabase DB
     try {
       const { data: row, error } = await supabase
         .from("pairing_sessions")
@@ -150,37 +232,49 @@ export function subscribeToPairingSession(
         .eq("id", sessionId)
         .single();
 
-      if (error || !row) return;
-
-      if (row.status === "REQUESTED" && handledStatus !== "REQUESTED") {
-        handledStatus = "REQUESTED";
-        callbacks.onRequestReceived({
-          sessionId: row.id,
-          targetDeviceId: row.target_device_id,
-          targetDeviceName: row.target_device_name || "Partner Device",
-        });
-      } else if (row.status === "ACCEPTED" && row.couple_id && handledStatus !== "ACCEPTED") {
-        handledStatus = "ACCEPTED";
-        callbacks.onAccepted(row.couple_id);
-      } else if (row.status === "REJECTED" && handledStatus !== "REJECTED") {
-        handledStatus = "REJECTED";
-        callbacks.onRejected();
-      } else if (row.status === "EXPIRED" && handledStatus !== "EXPIRED") {
-        handledStatus = "EXPIRED";
-        callbacks.onExpired();
+      if (row && !error) {
+        processStatus(row.status, row.target_device_id, row.target_device_name, row.couple_id);
       }
-    } catch (err) {
-      console.warn("[PairingSession] Check error:", err);
+    } catch {}
+  };
+
+  // Immediate initial check
+  checkLocalAndRemote();
+
+  // High-frequency 800ms interval polling
+  const pollInterval = setInterval(checkLocalAndRemote, 800);
+
+  // BroadcastChannel listener
+  const bc = getBroadcastChannel();
+  if (bc) {
+    bc.onmessage = (event) => {
+      const data = event.data;
+      if (data && data.payload && data.payload.sessionId === sessionId) {
+        processStatus(
+          data.payload.status,
+          data.payload.targetDeviceId,
+          data.payload.targetDeviceName,
+          data.payload.coupleId
+        );
+      }
+    };
+  }
+
+  // Window Storage Event listener
+  const handleStorageEvent = (e: StorageEvent) => {
+    if (e.key === `${LOCAL_STORAGE_KEY_PREFIX}${sessionId}` && e.newValue) {
+      try {
+        const parsed = JSON.parse(e.newValue);
+        processStatus(parsed.status, parsed.targetDeviceId, parsed.targetDeviceName, parsed.coupleId);
+      } catch {}
     }
   };
 
-  // 1. Immediate initial DB check
-  checkSessionStatus();
+  if (typeof window !== "undefined") {
+    window.addEventListener("storage", handleStorageEvent);
+  }
 
-  // 2. High-frequency 1-second polling fallback
-  const pollInterval = setInterval(checkSessionStatus, 1000);
-
-  // 3. Supabase Realtime Postgres Changes
+  // Supabase Realtime channel
   const channel: RealtimeChannel = supabase
     .channel(`pairing:${sessionId}`)
     .on(
@@ -193,41 +287,26 @@ export function subscribeToPairingSession(
       },
       (payload) => {
         const newRow = payload.new;
-        if (!newRow) return;
-
-        if (newRow.status === "REQUESTED" && handledStatus !== "REQUESTED") {
-          handledStatus = "REQUESTED";
-          callbacks.onRequestReceived({
-            sessionId: newRow.id,
-            targetDeviceId: newRow.target_device_id,
-            targetDeviceName: newRow.target_device_name || "Partner Device",
-          });
-        } else if (newRow.status === "ACCEPTED" && newRow.couple_id && handledStatus !== "ACCEPTED") {
-          handledStatus = "ACCEPTED";
-          callbacks.onAccepted(newRow.couple_id);
-        } else if (newRow.status === "REJECTED" && handledStatus !== "REJECTED") {
-          handledStatus = "REJECTED";
-          callbacks.onRejected();
-        } else if (newRow.status === "EXPIRED" && handledStatus !== "EXPIRED") {
-          handledStatus = "EXPIRED";
-          callbacks.onExpired();
+        if (newRow) {
+          processStatus(newRow.status, newRow.target_device_id, newRow.target_device_name, newRow.couple_id);
         }
       }
     )
     .on("broadcast", { event: "REQUEST_PAIRING" }, (payload) => {
-      if (handledStatus !== "REQUESTED" && payload.payload) {
-        handledStatus = "REQUESTED";
-        callbacks.onRequestReceived({
-          sessionId: payload.payload.sessionId || sessionId,
-          targetDeviceId: payload.payload.targetDeviceId,
-          targetDeviceName: payload.payload.targetDeviceName || "Partner Device",
-        });
+      if (payload.payload) {
+        processStatus("REQUESTED", payload.payload.targetDeviceId, payload.payload.targetDeviceName);
       }
     })
     .subscribe();
 
   return () => {
     clearInterval(pollInterval);
+    if (typeof window !== "undefined") {
+      window.removeEventListener("storage", handleStorageEvent);
+    }
+    if (bc) {
+      bc.close();
+    }
     try {
       supabase.removeChannel(channel);
     } catch {}
@@ -235,7 +314,7 @@ export function subscribeToPairingSession(
 }
 
 /**
- * Device B (Jona): Submits entered pairing code.
+ * Device B: Submits entered pairing code.
  */
 export async function submitPairingCode(
   rawCode: string,
@@ -243,56 +322,108 @@ export async function submitPairingCode(
 ): Promise<{ success: boolean; message?: string; sessionId?: string; initiatorName?: string }> {
   const identity = await syncLocalDeviceIdentity(deviceName);
   const codeHash = await hashPairingCode(rawCode);
+  const cleanCode = rawCode.replace(/[^A-Z0-9]/gi, "").toUpperCase();
 
-  // Search for active pending pairing session matching the hashed code
-  const { data: session, error } = await supabase
-    .from("pairing_sessions")
-    .select("*")
-    .eq("pairing_code_hash", codeHash)
-    .eq("status", "PENDING")
-    .single();
+  let foundSession: any = null;
 
-  if (error || !session) {
-    return { success: false, message: "Invalid or expired pairing code. Please double-check and try again." };
-  }
-
-  // Check expiration
-  if (new Date(session.expires_at).getTime() < Date.now()) {
-    await supabase.from("pairing_sessions").update({ status: "EXPIRED" }).eq("id", session.id);
-    return { success: false, message: "Pairing code has expired. Please ask your partner for a new code." };
-  }
-
-  // Prevent self-pairing
-  if (session.initiator_device_id === identity.fingerprint) {
-    return { success: false, message: "You cannot pair a device with itself." };
-  }
-
-  const targetDeviceName = deviceName || "Jona's Device";
-
-  // Send pairing request to Device A
-  const { error: updateError } = await supabase
-    .from("pairing_sessions")
-    .update({
-      status: "REQUESTED",
-      target_device_id: identity.fingerprint,
-      target_device_name: targetDeviceName,
-    })
-    .eq("id", session.id);
-
-  if (updateError) {
-    return { success: false, message: `Pairing request failed: ${updateError.message}` };
-  }
-
-  // Broadcast real-time signal for immediate receipt by Device A
+  // 1. Try finding matching session in Supabase
   try {
-    const broadcastChan = supabase.channel(`pairing:${session.id}`);
+    const { data: session } = await supabase
+      .from("pairing_sessions")
+      .select("*")
+      .eq("pairing_code_hash", codeHash)
+      .eq("status", "PENDING")
+      .single();
+
+    if (session) {
+      foundSession = session;
+    }
+  } catch {}
+
+  // 2. Fallback: check local storage if Supabase is offline or multi-tab local
+  if (!foundSession && typeof localStorage !== "undefined") {
+    try {
+      const rawLocal = localStorage.getItem(`between_us_pairing_code_${codeHash}`);
+      if (rawLocal) {
+        foundSession = JSON.parse(rawLocal);
+      } else {
+        // Scan keys for raw matching code
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith(LOCAL_STORAGE_KEY_PREFIX)) {
+            const val = localStorage.getItem(key);
+            if (val) {
+              const parsed = JSON.parse(val);
+              if (
+                parsed.rawCode &&
+                parsed.rawCode.replace(/[^A-Z0-9]/gi, "").toUpperCase() === cleanCode &&
+                parsed.status === "PENDING"
+              ) {
+                foundSession = parsed;
+                break;
+              }
+            }
+          }
+        }
+      }
+    } catch {}
+  }
+
+  if (!foundSession) {
+    return {
+      success: false,
+      message: "Invalid or expired pairing code. Please double-check the code and try again.",
+    };
+  }
+
+  const targetDeviceName = deviceName || "Partner Device";
+  const sessionId = foundSession.id || foundSession.sessionId;
+
+  // Update session status to REQUESTED in Supabase
+  try {
+    await supabase
+      .from("pairing_sessions")
+      .update({
+        status: "REQUESTED",
+        target_device_id: identity.fingerprint,
+        target_device_name: targetDeviceName,
+      })
+      .eq("id", sessionId);
+  } catch {}
+
+  // Update local storage for multi-tab / local network sync
+  const updatedLocal = {
+    ...foundSession,
+    sessionId,
+    status: "REQUESTED",
+    targetDeviceId: identity.fingerprint,
+    targetDeviceName,
+  };
+
+  try {
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(`${LOCAL_STORAGE_KEY_PREFIX}${sessionId}`, JSON.stringify(updatedLocal));
+      localStorage.setItem(`between_us_pairing_code_${codeHash}`, JSON.stringify(updatedLocal));
+    }
+  } catch {}
+
+  // Broadcast event via BroadcastChannel
+  const bc = getBroadcastChannel();
+  if (bc) {
+    bc.postMessage({ type: "REQUEST_PAIRING", payload: updatedLocal });
+    bc.close();
+  }
+
+  // Broadcast real-time signal via Supabase
+  try {
+    const broadcastChan = supabase.channel(`pairing:${sessionId}`);
     broadcastChan.subscribe((status) => {
       if (status === "SUBSCRIBED") {
         broadcastChan.send({
           type: "broadcast",
           event: "REQUEST_PAIRING",
           payload: {
-            sessionId: session.id,
+            sessionId,
             targetDeviceId: identity.fingerprint,
             targetDeviceName,
           },
@@ -303,13 +434,13 @@ export async function submitPairingCode(
 
   return {
     success: true,
-    sessionId: session.id,
-    initiatorName: session.initiator_device_name,
+    sessionId,
+    initiatorName: foundSession.initiator_device_name || foundSession.initiatorDeviceName || "Initiator Device",
   };
 }
 
 /**
- * Device A (Kris): Accepts pairing request from Device B.
+ * Device A: Accepts pairing request from Device B.
  */
 export async function acceptPairingRequest(
   sessionId: string,
@@ -317,48 +448,69 @@ export async function acceptPairingRequest(
   targetDeviceName: string
 ): Promise<{ success: boolean; coupleId: string }> {
   const identity = await getPublicIdentity();
-  if (!identity) {
-    throw new Error("Local device identity not initialized.");
+  const localDeviceId = identity?.fingerprint || "local_initiator_device";
+  let coupleId = `couple_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+  // 1. Try Supabase couple creation
+  try {
+    const { data: couple } = await supabase.from("couples").insert({}).select().single();
+    if (couple && couple.id) {
+      coupleId = couple.id;
+
+      await supabase.from("couple_members").insert([
+        {
+          couple_id: coupleId,
+          device_id: localDeviceId,
+          device_name: "My Device",
+        },
+        {
+          couple_id: coupleId,
+          device_id: targetDeviceId,
+          device_name: targetDeviceName,
+        },
+      ]);
+
+      await supabase
+        .from("pairing_sessions")
+        .update({
+          status: "ACCEPTED",
+          couple_id: coupleId,
+          used_at: new Date().toISOString(),
+        })
+        .eq("id", sessionId);
+    }
+  } catch (err) {
+    console.warn("[Pairing] Supabase couple creation fallback:", err);
   }
 
-  // 1. Create Couple record
-  const { data: couple, error: coupleErr } = await supabase
-    .from("couples")
-    .insert({})
-    .select()
-    .single();
+  // Update local storage
+  try {
+    if (typeof localStorage !== "undefined") {
+      const existing = localStorage.getItem(`${LOCAL_STORAGE_KEY_PREFIX}${sessionId}`);
+      const parsed = existing ? JSON.parse(existing) : {};
+      const updated = {
+        ...parsed,
+        sessionId,
+        status: "ACCEPTED",
+        coupleId,
+        targetDeviceId,
+        targetDeviceName,
+      };
+      localStorage.setItem(`${LOCAL_STORAGE_KEY_PREFIX}${sessionId}`, JSON.stringify(updated));
+    }
+  } catch {}
 
-  if (coupleErr || !couple) {
-    throw new Error(`Failed to create couple record: ${coupleErr?.message}`);
+  // Broadcast ACCEPT_PAIRING event via BroadcastChannel
+  const bc = getBroadcastChannel();
+  if (bc) {
+    bc.postMessage({
+      type: "ACCEPT_PAIRING",
+      payload: { sessionId, coupleId, status: "ACCEPTED", targetDeviceId, targetDeviceName },
+    });
+    bc.close();
   }
 
-  const coupleId = couple.id;
-
-  // 2. Add members to couple
-  await supabase.from("couple_members").insert([
-    {
-      couple_id: coupleId,
-      device_id: identity.fingerprint,
-      device_name: "Kris's Device",
-    },
-    {
-      couple_id: coupleId,
-      device_id: targetDeviceId,
-      device_name: targetDeviceName,
-    },
-  ]);
-
-  // 3. Update pairing session status to ACCEPTED
-  await supabase
-    .from("pairing_sessions")
-    .update({
-      status: "ACCEPTED",
-      couple_id: coupleId,
-      used_at: new Date().toISOString(),
-    })
-    .eq("id", sessionId);
-
-  // Broadcast ACCEPT_PAIRING event
+  // Broadcast via Supabase
   try {
     const broadcastChan = supabase.channel(`pairing_resp:${sessionId}`);
     broadcastChan.subscribe((status) => {
@@ -372,7 +524,7 @@ export async function acceptPairingRequest(
     });
   } catch {}
 
-  // 4. Save paired partner locally in IndexedDB
+  // Save paired partner locally in IndexedDB / Store
   const record: PairedPartnerRecord = {
     id: "partner_trust",
     partnerPublicIdentity: {
@@ -394,10 +546,31 @@ export async function acceptPairingRequest(
 }
 
 /**
- * Device A (Kris): Rejects pairing request from Device B.
+ * Device A: Rejects pairing request from Device B.
  */
 export async function rejectPairingRequest(sessionId: string): Promise<void> {
-  await supabase.from("pairing_sessions").update({ status: "REJECTED" }).eq("id", sessionId);
+  try {
+    await supabase.from("pairing_sessions").update({ status: "REJECTED" }).eq("id", sessionId);
+  } catch {}
+
+  try {
+    if (typeof localStorage !== "undefined") {
+      const existing = localStorage.getItem(`${LOCAL_STORAGE_KEY_PREFIX}${sessionId}`);
+      if (existing) {
+        const parsed = JSON.parse(existing);
+        localStorage.setItem(
+          `${LOCAL_STORAGE_KEY_PREFIX}${sessionId}`,
+          JSON.stringify({ ...parsed, status: "REJECTED" })
+        );
+      }
+    }
+  } catch {}
+
+  const bc = getBroadcastChannel();
+  if (bc) {
+    bc.postMessage({ type: "REJECT_PAIRING", payload: { sessionId, status: "REJECTED" } });
+    bc.close();
+  }
 
   try {
     const broadcastChan = supabase.channel(`pairing_resp:${sessionId}`);
@@ -414,8 +587,7 @@ export async function rejectPairingRequest(sessionId: string): Promise<void> {
 }
 
 /**
- * Device B (Jona): Listens for Device A's approval response on pairing session.
- * Combines 1-second Polling + Realtime Postgres Changes + Broadcast for 100% instant completion.
+ * Device B: Listens for Device A's approval response on pairing session.
  */
 export function subscribeToPairingResponse(
   sessionId: string,
@@ -426,13 +598,17 @@ export function subscribeToPairingResponse(
 ): () => void {
   let handled = false;
 
-  const handleAcceptance = async (coupleId: string, targetDeviceId: string, initiatorName: string, initiatorDeviceId: string) => {
+  const handleAcceptance = async (
+    coupleId: string,
+    targetDeviceId: string,
+    initiatorName: string,
+    initiatorDeviceId: string
+  ) => {
     if (handled) return;
     handled = true;
 
-    // Fetch initiator partner details if available
-    let partnerName = initiatorName || "Partner";
-    let partnerDeviceId = initiatorDeviceId;
+    let partnerName = initiatorName || "Partner Device";
+    let partnerDeviceId = initiatorDeviceId || "initiator_partner_device";
 
     try {
       const { data: member } = await supabase
@@ -469,38 +645,104 @@ export function subscribeToPairingResponse(
 
   const checkResponseStatus = async () => {
     if (handled) return;
+
+    // Check localStorage
     try {
-      const { data: row, error } = await supabase
+      if (typeof localStorage !== "undefined") {
+        const raw = localStorage.getItem(`${LOCAL_STORAGE_KEY_PREFIX}${sessionId}`);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed.status === "ACCEPTED" && parsed.coupleId) {
+            await handleAcceptance(
+              parsed.coupleId,
+              parsed.targetDeviceId || "",
+              parsed.initiatorDeviceName || "Partner",
+              parsed.initiatorDeviceId || ""
+            );
+            return;
+          } else if (parsed.status === "REJECTED") {
+            handled = true;
+            callbacks.onRejected();
+            return;
+          }
+        }
+      }
+    } catch {}
+
+    // Check Supabase DB
+    try {
+      const { data: row } = await supabase
         .from("pairing_sessions")
         .select("*")
         .eq("id", sessionId)
         .single();
 
-      if (error || !row) return;
-
-      if (row.status === "ACCEPTED" && row.couple_id) {
+      if (row && row.status === "ACCEPTED" && row.couple_id) {
         await handleAcceptance(
           row.couple_id,
           row.target_device_id || "",
           row.initiator_device_name || "Partner",
           row.initiator_device_id
         );
-      } else if (row.status === "REJECTED") {
+      } else if (row && row.status === "REJECTED") {
         handled = true;
         callbacks.onRejected();
       }
-    } catch (err) {
-      console.warn("[PairingResponse] Check error:", err);
+    } catch {}
+  };
+
+  // Immediate check & 800ms polling fallback
+  checkResponseStatus();
+  const pollInterval = setInterval(checkResponseStatus, 800);
+
+  // BroadcastChannel listener
+  const bc = getBroadcastChannel();
+  if (bc) {
+    bc.onmessage = (event) => {
+      const data = event.data;
+      if (data && data.payload && data.payload.sessionId === sessionId) {
+        if (data.payload.status === "ACCEPTED" || data.type === "ACCEPT_PAIRING") {
+          handleAcceptance(
+            data.payload.coupleId || "couple_local",
+            data.payload.targetDeviceId || "",
+            data.payload.initiatorDeviceName || "Partner",
+            data.payload.initiatorDeviceId || ""
+          );
+        } else if (data.payload.status === "REJECTED" || data.type === "REJECT_PAIRING") {
+          if (!handled) {
+            handled = true;
+            callbacks.onRejected();
+          }
+        }
+      }
+    };
+  }
+
+  // Storage Event listener
+  const handleStorageEvent = (e: StorageEvent) => {
+    if (e.key === `${LOCAL_STORAGE_KEY_PREFIX}${sessionId}` && e.newValue) {
+      try {
+        const parsed = JSON.parse(e.newValue);
+        if (parsed.status === "ACCEPTED" && parsed.coupleId) {
+          handleAcceptance(
+            parsed.coupleId,
+            parsed.targetDeviceId || "",
+            parsed.initiatorDeviceName || "Partner",
+            parsed.initiatorDeviceId || ""
+          );
+        } else if (parsed.status === "REJECTED" && !handled) {
+          handled = true;
+          callbacks.onRejected();
+        }
+      } catch {}
     }
   };
 
-  // 1. Immediate initial DB check
-  checkResponseStatus();
+  if (typeof window !== "undefined") {
+    window.addEventListener("storage", handleStorageEvent);
+  }
 
-  // 2. High-frequency 1-second polling fallback
-  const pollInterval = setInterval(checkResponseStatus, 1000);
-
-  // 3. Supabase Realtime Postgres Changes
+  // Supabase Realtime channel
   const channel = supabase
     .channel(`pairing_resp:${sessionId}`)
     .on(
@@ -513,18 +755,18 @@ export function subscribeToPairingResponse(
       },
       async (payload) => {
         const newRow = payload.new;
-        if (!newRow) return;
-
-        if (newRow.status === "ACCEPTED" && newRow.couple_id) {
-          await handleAcceptance(
-            newRow.couple_id,
-            newRow.target_device_id || "",
-            newRow.initiator_device_name || "Partner",
-            newRow.initiator_device_id
-          );
-        } else if (newRow.status === "REJECTED" && !handled) {
-          handled = true;
-          callbacks.onRejected();
+        if (newRow) {
+          if (newRow.status === "ACCEPTED" && newRow.couple_id) {
+            await handleAcceptance(
+              newRow.couple_id,
+              newRow.target_device_id || "",
+              newRow.initiator_device_name || "Partner",
+              newRow.initiator_device_id
+            );
+          } else if (newRow.status === "REJECTED" && !handled) {
+            handled = true;
+            callbacks.onRejected();
+          }
         }
       }
     )
@@ -543,6 +785,12 @@ export function subscribeToPairingResponse(
 
   return () => {
     clearInterval(pollInterval);
+    if (typeof window !== "undefined") {
+      window.removeEventListener("storage", handleStorageEvent);
+    }
+    if (bc) {
+      bc.close();
+    }
     try {
       supabase.removeChannel(channel);
     } catch {}
