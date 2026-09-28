@@ -94,8 +94,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   }
 
   return (
-    <div className="relative w-full min-h-screen bg-[#040814] text-white flex flex-col items-center justify-between p-4 sm:p-6 overflow-hidden font-outfit select-none min-h-dvh">
-      {/* Full-Screen Romantic Background Artwork (Background(1).png) */}
+    <div className="relative w-full h-full min-h-full max-h-full bg-[#040814] text-white flex flex-col items-center justify-between p-3 sm:p-4 overflow-hidden overscroll-none touch-none font-outfit select-none">
+      {/* Full-Screen Romantic Background Artwork (Background.png) */}
       <div className="absolute inset-0 w-full h-full z-0 overflow-hidden pointer-events-none">
         <Image
           src="/images/background.png"
@@ -103,19 +103,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           fill
           priority
           sizes="100vw"
-          className="object-cover object-[center_20%] w-full h-full"
+          className="object-cover object-[center_15%] w-full h-full"
         />
         {/* Ambient Overlay for Legibility & Deep Dark Blue Glow */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#040814]/40 via-transparent to-[#040814]/90 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#040814]/30 via-transparent to-[#040814]/90 pointer-events-none" />
       </div>
 
       {/* Main Responsive Mobile PWA Container */}
-      <div className="relative w-full max-w-md mx-auto min-h-[92vh] sm:min-h-[95vh] flex flex-col justify-between pt-1 pb-4 z-10 safe-area-inset">
+      <div className="relative w-full max-w-md mx-auto h-full flex flex-col justify-between pt-0.5 pb-2 z-10 overflow-hidden">
         
         {/* Top Header Navigation */}
         <HomeHeader
           onOpenSettings={() => setIsSettingsOpen(true)}
-          onHeartClick={() => setIsSettingsOpen(true)}
         />
 
         {/* Center Partner Connection & Avatar Section */}
