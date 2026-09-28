@@ -17,8 +17,11 @@ export default function AudioCallPage() {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [isMuted, setIsMuted] = useState(false);
+  const [isVideoOff, setIsVideoOff] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [screenShareError, setScreenShareError] = useState<string | null>(null);
 
   const callManagerRef = useRef<AudioCallManager | null>(null);
 
@@ -59,6 +62,9 @@ export default function AudioCallPage() {
           },
           onMuteChange: (muted) => {
             setIsMuted(muted);
+          },
+          onCameraChange: (cameraOff) => {
+            setIsVideoOff(cameraOff);
           },
           onError: (err) => {
             if (
@@ -143,6 +149,36 @@ export default function AudioCallPage() {
     }
   };
 
+  const handleToggleVideo = () => {
+    if (callManagerRef.current) {
+      const cameraOff = callManagerRef.current.toggleCamera();
+      setIsVideoOff(cameraOff);
+    }
+  };
+
+  const handleSwitchCamera = async () => {
+    if (callManagerRef.current) {
+      const freshStream = await callManagerRef.current.switchCamera();
+      if (freshStream) {
+        setLocalStream(freshStream);
+      }
+    }
+  };
+
+  const handleToggleScreenShare = async () => {
+    if (callManagerRef.current) {
+      try {
+        setScreenShareError(null);
+        const isSharing = await callManagerRef.current.toggleScreenShare();
+        setIsScreenSharing(isSharing);
+      } catch (err: any) {
+        const msg = err.message || "Screen sharing is not supported on this browser/device.";
+        setScreenShareError(msg);
+        setTimeout(() => setScreenShareError(null), 4000);
+      }
+    }
+  };
+
   const mapCallStateToConnectionStatus = (state: CallState): ConnectionCallState | string => {
     switch (state) {
       case CallState.OUTGOING_INITIATING:
@@ -202,14 +238,19 @@ export default function AudioCallPage() {
 
   return (
     <CallScreen
-      type="audio"
+      type={isVideoOff ? "audio" : "video"}
       partnerName={partnerName}
       callState={mapCallStateToConnectionStatus(callState)}
       localStream={localStream}
       remoteStream={remoteStream}
       isMuted={isMuted}
-      isVideoOff={true}
+      isVideoOff={isVideoOff}
+      isScreenSharing={isScreenSharing}
+      screenShareNotice={screenShareError}
       onToggleMute={handleToggleMute}
+      onToggleVideo={handleToggleVideo}
+      onToggleScreenShare={handleToggleScreenShare}
+      onSwitchCamera={handleSwitchCamera}
       onEndCall={handleEndCall}
     />
   );

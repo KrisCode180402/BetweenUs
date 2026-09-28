@@ -339,7 +339,7 @@ export class PeerConnectionManager {
   }
 
   /**
-   * Switches between front and rear cameras (if supported).
+   * Switches between front and rear cameras on mobile and desktop.
    * Returns a fresh MediaStream instance on success for React UI state re-rendering.
    */
   public async switchCamera(): Promise<MediaStream | null> {
@@ -348,42 +348,68 @@ export class PeerConnectionManager {
     const oldVideoTrack = this.localStream.getVideoTracks()[0];
     if (!oldVideoTrack) return null;
 
-    this.currentFacingMode = this.currentFacingMode === "user" ? "environment" : "user";
+    const targetFacingMode = this.currentFacingMode === "user" ? "environment" : "user";
+
+    // Stop old track FIRST to release camera hardware lock on mobile webviews!
+    try {
+      oldVideoTrack.stop();
+    } catch {}
 
     let newStream: MediaStream | null = null;
+
+    // Attempt 1: exact facingMode constraint
     try {
       newStream = await navigator.mediaDevices.getUserMedia({
         audio: false,
-        video: { facingMode: { ideal: this.currentFacingMode } },
+        video: { facingMode: { exact: targetFacingMode } },
       });
-    } catch (e1) {
+    } catch (err1) {
+      // Attempt 2: ideal facingMode constraint
       try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoDevices = devices.filter((d) => d.kind === "videoinput");
-        if (videoDevices.length > 1) {
-          const currentId = oldVideoTrack.getSettings().deviceId;
-          const nextDevice = videoDevices.find((d) => d.deviceId !== currentId) || videoDevices[0];
-          if (nextDevice?.deviceId) {
-            newStream = await navigator.mediaDevices.getUserMedia({
-              audio: false,
-              video: { deviceId: { exact: nextDevice.deviceId } },
-            });
+        newStream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: { facingMode: { ideal: targetFacingMode } },
+        });
+      } catch (err2) {
+        // Attempt 3: Enumerate videoinput devices and select alternate device by label/id
+        try {
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const videoDevices = devices.filter((d) => d.kind === "videoinput");
+          if (videoDevices.length > 1) {
+            const currentId = oldVideoTrack.getSettings().deviceId;
+            const alternateDevice =
+              videoDevices.find((d) =>
+                targetFacingMode === "environment"
+                  ? /back|rear|environment|main/i.test(d.label)
+                  : /front|user|facing|selfie/i.test(d.label)
+              ) || videoDevices.find((d) => d.deviceId !== currentId) || videoDevices[0];
+
+            if (alternateDevice?.deviceId) {
+              newStream = await navigator.mediaDevices.getUserMedia({
+                audio: false,
+                video: { deviceId: { exact: alternateDevice.deviceId } },
+              });
+            }
           }
+        } catch (err3) {
+          console.warn("Camera switch device enumeration fallback failed:", err3);
         }
-      } catch (e2) {
-        console.warn("Camera switch fallback notice:", e2);
       }
     }
 
-    if (!newStream) return null;
+    // Fallback: If all specific facingMode attempts fail, acquire default camera stream
+    if (!newStream) {
+      try {
+        newStream = await navigator.mediaDevices.getUserMedia({ audio: false, video: true });
+      } catch {
+        return null;
+      }
+    }
 
     const newVideoTrack = newStream.getVideoTracks()[0];
     if (!newVideoTrack) return null;
 
-    // Stop old track to release hardware lock
-    try {
-      oldVideoTrack.stop();
-    } catch {}
+    this.currentFacingMode = targetFacingMode;
 
     // Replace RTCRtpSender track for peer connection
     const senders = this.pc.getSenders();

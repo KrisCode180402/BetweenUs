@@ -155,7 +155,10 @@ export const CallScreen: React.FC<CallScreenProps> = ({
     }
   }, [pipStream, isPipCameraOff, type]);
 
-  // Pointer event handlers for fluid dragging of the PiP Window
+  const pipRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  // Pointer event handlers for fluid dragging of the PiP Window with strict viewport clamping
   const handlePipPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.stopPropagation();
     try {
@@ -177,10 +180,25 @@ export const CallScreen: React.FC<CallScreenProps> = ({
     const dx = e.clientX - dragStartRef.current.startX;
     const dy = e.clientY - dragStartRef.current.startY;
     dragDistanceRef.current = Math.sqrt(dx * dx + dy * dy);
-    setPipPos({
-      x: dragStartRef.current.initialX + dx,
-      y: dragStartRef.current.initialY + dy,
-    });
+
+    let targetX = dragStartRef.current.initialX + dx;
+    let targetY = dragStartRef.current.initialY + dy;
+
+    // Strict clamping so PiP NEVER leaves visible screen bounds!
+    if (containerRef.current && pipRef.current) {
+      const containerRect = containerRef.current.getBoundingClientRect();
+      const pipRect = pipRef.current.getBoundingClientRect();
+
+      const minX = -(containerRect.width - pipRect.width - 12);
+      const maxX = 12;
+      const minY = -(containerRect.height - pipRect.height - 110);
+      const maxY = 12;
+
+      targetX = Math.max(minX, Math.min(maxX, targetX));
+      targetY = Math.max(minY, Math.min(maxY, targetY));
+    }
+
+    setPipPos({ x: targetX, y: targetY });
   };
 
   const handlePipPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -253,6 +271,7 @@ export const CallScreen: React.FC<CallScreenProps> = ({
 
   return (
     <div
+      ref={containerRef}
       onClick={() => setControlsVisible((prev) => !prev)}
       className="fixed inset-0 w-screen h-dvh min-h-dvh max-h-dvh bg-[#040814] text-white flex flex-col items-center justify-between p-3 sm:p-4 overflow-hidden font-outfit select-none cursor-pointer touch-none overscroll-none"
     >
@@ -293,9 +312,13 @@ export const CallScreen: React.FC<CallScreenProps> = ({
               <div className="absolute inset-0 bg-gradient-to-b from-[#040814]/50 via-[#040814]/30 to-[#040814]/85" />
             </>
           )}
-          {/* Subtle top & bottom dark gradients for control legibility */}
-          <div className="absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-[#040814]/85 to-transparent pointer-events-none" />
-          <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-[#040814]/90 to-transparent pointer-events-none" />
+          {/* Subtle top & bottom dark gradients for control legibility (Fades completely when controls hide!) */}
+          <div className={`absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-[#040814]/85 to-transparent pointer-events-none transition-opacity duration-300 ${
+            controlsVisible ? "opacity-100" : "opacity-0"
+          }`} />
+          <div className={`absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-[#040814]/90 to-transparent pointer-events-none transition-opacity duration-300 ${
+            controlsVisible ? "opacity-100" : "opacity-0"
+          }`} />
         </div>
       ) : (
         /* Audio Background View */
@@ -418,6 +441,7 @@ export const CallScreen: React.FC<CallScreenProps> = ({
             
             {/* Draggable PiP Card Container */}
             <div
+              ref={pipRef}
               onPointerDown={handlePipPointerDown}
               onPointerMove={handlePipPointerMove}
               onPointerUp={handlePipPointerUp}

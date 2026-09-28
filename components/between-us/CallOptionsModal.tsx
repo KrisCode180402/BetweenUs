@@ -84,7 +84,12 @@ export const CallOptionsModal: React.FC<CallOptionsModalProps> = ({
                   🖥️
                 </div>
                 <div className="text-left">
-                  <p className="text-xs font-bold text-white">Screen Share</p>
+                  <p className="text-xs font-bold text-white flex items-center gap-1.5">
+                    <span>Screen Share</span>
+                    {typeof navigator !== "undefined" && !navigator.mediaDevices?.getDisplayMedia && (
+                      <span className="text-[9px] bg-slate-800 text-amber-400 px-1.5 py-0.5 rounded font-normal">Desktop Only</span>
+                    )}
+                  </p>
                   <p className="text-[11px] text-slate-400">
                     {isScreenSharing ? "Sharing active · Tap to stop" : "Share device screen live"}
                   </p>
