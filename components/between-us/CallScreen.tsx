@@ -384,17 +384,19 @@ export const CallScreen: React.FC<CallScreenProps> = ({
 
           {/* Center Branding & E2EE Status */}
           <div className="text-center flex flex-col items-center">
-            <h1 className="font-script text-3.5xl sm:text-4.5xl font-normal text-white tracking-wide drop-shadow-[0_0_15px_rgba(255,255,255,0.6)] flex items-center justify-center gap-1">
+            <h1 className="font-script text-[32px] sm:text-[40px] leading-tight font-normal text-white tracking-wide drop-shadow-[0_0_15px_rgba(255,255,255,0.7)] flex items-center justify-center gap-1">
               Between Us <span className="text-rose-400 text-2xl sm:text-3xl leading-none">💕</span>
             </h1>
             <div className="flex items-center justify-center gap-1 text-[11px] font-semibold text-emerald-400 drop-shadow mt-0.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               <span>🔒 End-to-End Encrypted</span>
             </div>
-            {/* Call Duration Counter */}
-            <p className="text-xs font-mono text-slate-200 font-medium mt-0.5 tracking-widest drop-shadow">
-              {getDisplayStatusText()}
-            </p>
+            {/* Call Duration Counter (Only rendered in top header for video calls to prevent duplicate timers) */}
+            {type === "video" && (
+              <p className="text-xs font-mono text-slate-200 font-medium mt-0.5 tracking-widest drop-shadow">
+                {getDisplayStatusText()}
+              </p>
+            )}
           </div>
 
           {/* Top Right Balance Spacer */}

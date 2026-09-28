@@ -41,10 +41,10 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
 
       {/* Center Brand Title */}
       <div className="text-center flex flex-col items-center">
-        <h1 className="font-script text-3.5xl sm:text-4.5xl font-normal text-white tracking-wide drop-shadow-[0_0_18px_rgba(255,255,255,0.7)] flex items-center justify-center gap-1.5">
-          Between Us <span className="text-emerald-400 text-xl font-normal">♡</span>
+        <h1 className="font-script text-[36px] sm:text-[44px] leading-tight font-normal text-white tracking-wide drop-shadow-[0_0_20px_rgba(255,255,255,0.85)] flex items-center justify-center gap-1.5">
+          Between Us <span className="text-emerald-400 text-2xl font-normal leading-none">♡</span>
         </h1>
-        <p className="text-[11px] text-teal-300/90 font-medium tracking-wide flex items-center gap-1 mt-0.5">
+        <p className="text-xs text-teal-300/90 font-medium tracking-wide flex items-center gap-1 mt-0.5">
           Just the two of us <span className="text-emerald-400">♡</span>
         </p>
       </div>
