@@ -59,10 +59,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning className={`dark ${outfit.variable} ${dancingScript.variable}`}>
-      <body suppressHydrationWarning className="antialiased bg-[#060B14] text-gray-100 font-outfit selection:bg-teal-500 selection:text-white min-h-screen safe-area-inset">
+    <html lang="en" suppressHydrationWarning className={`dark ${outfit.variable} ${dancingScript.variable} h-full overflow-hidden overscroll-none`}>
+      <body suppressHydrationWarning className="antialiased bg-[#060B14] text-gray-100 font-outfit selection:bg-teal-500 selection:text-white h-dvh min-h-dvh max-h-dvh w-full overflow-hidden overscroll-none fixed inset-0 safe-area-inset">
         <ErrorBoundary>
-          <main className="min-h-screen flex flex-col items-center justify-center">
+          <main className="h-full w-full flex flex-col items-center justify-center overflow-hidden">
             {children}
           </main>
           <GlobalIncomingCallHandler />

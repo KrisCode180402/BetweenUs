@@ -45,7 +45,7 @@ export default function PairingPage() {
   }
 
   return (
-    <div className="relative w-full h-dvh min-h-dvh max-h-dvh bg-[#040814] text-white flex flex-col items-center justify-between p-3 sm:p-5 overflow-hidden font-outfit select-none">
+    <div className="relative w-full h-full min-h-full max-h-full bg-[#040814] text-white flex flex-col items-center justify-between p-3 sm:p-4 overflow-hidden overscroll-none touch-none font-outfit select-none">
       
       {/* Full-Screen Romantic Background Artwork (Starry Sky + Sunset Couple Lake) */}
       <div className="absolute inset-0 w-full h-full z-0 overflow-hidden pointer-events-none">
@@ -62,7 +62,7 @@ export default function PairingPage() {
       </div>
 
       {/* Main Mobile App Container (Constrained to fit viewport cleanly) */}
-      <div className="relative w-full max-w-md mx-auto h-full flex flex-col justify-between pt-1 pb-3 z-10">
+      <div className="relative w-full max-w-md mx-auto h-full flex flex-col justify-between pt-0.5 pb-2 z-10 overflow-hidden">
         
         {/* Top Header Row with Language Selector on Right */}
         <div className="w-full flex items-center justify-end pt-0.5 px-1">
