@@ -614,10 +614,15 @@ export class AudioCallManager {
     }
   }
 
-  public async switchCamera(): Promise<void> {
+  public async switchCamera(): Promise<MediaStream | null> {
     if (this.pcManager) {
-      await this.pcManager.switchCamera();
+      const updatedStream = await this.pcManager.switchCamera();
+      if (updatedStream && this.events.onLocalStream) {
+        this.events.onLocalStream(updatedStream);
+      }
+      return updatedStream;
     }
+    return null;
   }
 
   public stopListener(): void {

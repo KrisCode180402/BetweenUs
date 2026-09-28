@@ -141,16 +141,19 @@ export default function VideoCallPage() {
   };
 
   const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [screenShareError, setScreenShareError] = useState<string | null>(null);
 
   const handleToggleScreenShare = async () => {
     if (callManagerRef.current) {
       try {
+        setScreenShareError(null);
         const isSharing = await callManagerRef.current.toggleScreenShare();
         setIsScreenSharing(isSharing);
       } catch (err: any) {
-        if (err.message && !err.message.includes("denied")) {
-          setErrorMessage(err.message);
-        }
+        // Show inline warning on screen without crashing active call
+        const msg = err.message || "Screen sharing is not supported on this browser/device.";
+        setScreenShareError(msg);
+        setTimeout(() => setScreenShareError(null), 4000);
       }
     }
   };
@@ -171,7 +174,10 @@ export default function VideoCallPage() {
 
   const handleSwitchCamera = async () => {
     if (callManagerRef.current) {
-      await callManagerRef.current.switchCamera();
+      const freshStream = await callManagerRef.current.switchCamera();
+      if (freshStream) {
+        setLocalStream(freshStream);
+      }
     }
   };
 
@@ -242,6 +248,7 @@ export default function VideoCallPage() {
       isMuted={isMuted}
       isVideoOff={isVideoOff}
       isScreenSharing={isScreenSharing}
+      screenShareNotice={screenShareError}
       onToggleMute={handleToggleMute}
       onToggleVideo={handleToggleVideo}
       onToggleScreenShare={handleToggleScreenShare}

@@ -340,34 +340,63 @@ export class PeerConnectionManager {
 
   /**
    * Switches between front and rear cameras (if supported).
+   * Returns a fresh MediaStream instance on success for React UI state re-rendering.
    */
-  public async switchCamera(): Promise<void> {
-    if (!this.localStream || !this.pc) return;
+  public async switchCamera(): Promise<MediaStream | null> {
+    if (!this.localStream || !this.pc) return null;
 
     const oldVideoTrack = this.localStream.getVideoTracks()[0];
-    if (!oldVideoTrack) return;
+    if (!oldVideoTrack) return null;
 
     this.currentFacingMode = this.currentFacingMode === "user" ? "environment" : "user";
 
+    let newStream: MediaStream | null = null;
     try {
-      const newStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: this.currentFacingMode },
+      newStream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: { facingMode: { ideal: this.currentFacingMode } },
       });
-      const newVideoTrack = newStream.getVideoTracks()[0];
-      if (!newVideoTrack) return;
-
-      // Find RTCRtpSender for video
-      const senders = this.pc.getSenders();
-      const videoSender = senders.find((s) => s.track?.kind === "video");
-      if (videoSender && typeof videoSender.replaceTrack === "function") {
-        await videoSender.replaceTrack(newVideoTrack);
+    } catch (e1) {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter((d) => d.kind === "videoinput");
+        if (videoDevices.length > 1) {
+          const currentId = oldVideoTrack.getSettings().deviceId;
+          const nextDevice = videoDevices.find((d) => d.deviceId !== currentId) || videoDevices[0];
+          if (nextDevice?.deviceId) {
+            newStream = await navigator.mediaDevices.getUserMedia({
+              audio: false,
+              video: { deviceId: { exact: nextDevice.deviceId } },
+            });
+          }
+        }
+      } catch (e2) {
+        console.warn("Camera switch fallback notice:", e2);
       }
+    }
 
-      // Replace track in localStream
-      this.localStream.removeTrack(oldVideoTrack);
+    if (!newStream) return null;
+
+    const newVideoTrack = newStream.getVideoTracks()[0];
+    if (!newVideoTrack) return null;
+
+    // Stop old track to release hardware lock
+    try {
       oldVideoTrack.stop();
-      this.localStream.addTrack(newVideoTrack);
     } catch {}
+
+    // Replace RTCRtpSender track for peer connection
+    const senders = this.pc.getSenders();
+    const videoSender = senders.find((s) => s.track?.kind === "video");
+    if (videoSender && typeof videoSender.replaceTrack === "function") {
+      await videoSender.replaceTrack(newVideoTrack);
+    }
+
+    // Replace track in localStream
+    this.localStream.removeTrack(oldVideoTrack);
+    this.localStream.addTrack(newVideoTrack);
+
+    return new MediaStream(this.localStream.getTracks());
   }
 
   private screenStream: MediaStream | null = null;
@@ -387,13 +416,13 @@ export class PeerConnectionManager {
       !navigator.mediaDevices ||
       !navigator.mediaDevices.getDisplayMedia
     ) {
-      throw new Error("Screen sharing (getDisplayMedia) is not supported in this browser.");
+      throw new Error("Screen sharing (getDisplayMedia) is not supported in this mobile browser.");
     }
 
     try {
       const displayStream = await navigator.mediaDevices.getDisplayMedia({
-        video: true,
-        audio: false,
+        video: { cursor: "always" } as any,
+        audio: true,
       });
 
       const screenTrack = displayStream.getVideoTracks()[0];
@@ -411,9 +440,18 @@ export class PeerConnectionManager {
         if (videoSender && typeof videoSender.replaceTrack === "function") {
           await videoSender.replaceTrack(screenTrack);
         }
+
+        // If system audio track exists in screen share stream, replace audio sender as well
+        const screenAudioTrack = displayStream.getAudioTracks()[0];
+        if (screenAudioTrack) {
+          const audioSender = senders.find((s) => s.track?.kind === "audio");
+          if (audioSender && typeof audioSender.replaceTrack === "function") {
+            await audioSender.replaceTrack(screenAudioTrack);
+          }
+        }
       }
 
-      // Handle user stopping screen share externally via browser UI
+      // Handle user stopping screen share externally via browser UI bar
       screenTrack.onended = () => {
         this.stopScreenShare().catch(() => {});
       };
@@ -421,9 +459,9 @@ export class PeerConnectionManager {
       return displayStream;
     } catch (err: any) {
       if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
-        throw new Error("Screen sharing permission was denied.");
+        throw new Error("Screen sharing permission was cancelled.");
       }
-      throw new Error(`Failed to start screen sharing: ${err.message || err.name}`);
+      throw new Error(err.message || "Failed to start screen sharing.");
     }
   }
 
