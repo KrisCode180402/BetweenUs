@@ -39,7 +39,7 @@ export const CallScreen: React.FC<CallScreenProps> = ({
   isScreenSharing = false,
   onToggleMute,
   onToggleVideo,
-  onToggleScreenShare: _onToggleScreenShare,
+  onToggleScreenShare,
   onSwitchCamera,
   onEmergencyExit: _onEmergencyExit,
   onEndCall,
@@ -51,14 +51,16 @@ export const CallScreen: React.FC<CallScreenProps> = ({
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showBackConfirm, setShowBackConfirm] = useState(false);
   const [secondsElapsed, setSecondsElapsed] = useState(0);
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const [isStreamSwapped, setIsStreamSwapped] = useState(false);
   const [isPrivacyActive, setIsPrivacyActive] = useState(privacyModeManager.isActive());
   const [isBackgrounded, setIsBackgrounded] = useState(
     typeof document !== "undefined" ? document.visibilityState === "hidden" : false
   );
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const localVideoRef = useRef<HTMLVideoElement | null>(null);
-  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+  const fullscreenVideoRef = useRef<HTMLVideoElement | null>(null);
+  const pipVideoRef = useRef<HTMLVideoElement | null>(null);
 
   const isConnected = callState === "Connected";
 
@@ -115,22 +117,30 @@ export const CallScreen: React.FC<CallScreenProps> = ({
     }
   }, [remoteStream]);
 
-  // Local Video Preview Binding
-  useEffect(() => {
-    if (localVideoRef.current && localStream && (type === "video" || isScreenSharing) && !localCameraOff) {
-      localVideoRef.current.srcObject = localStream;
-    }
-  }, [localStream, type, localCameraOff, isScreenSharing]);
+  // Stream Resolution for Fullscreen vs PiP Views
+  const fullscreenStream = isStreamSwapped ? localStream : remoteStream;
+  const pipStream = isStreamSwapped ? remoteStream : localStream;
+  const isPipCameraOff = isStreamSwapped ? false : localCameraOff;
 
-  // Remote Video Stream Binding
+  // Fullscreen Video Stream Binding
   useEffect(() => {
-    if (remoteVideoRef.current && remoteStream && type === "video") {
-      remoteVideoRef.current.srcObject = remoteStream;
-      remoteVideoRef.current.play().catch((err) => {
-        console.warn("Remote video play notice:", err);
+    if (fullscreenVideoRef.current && fullscreenStream && type === "video") {
+      fullscreenVideoRef.current.srcObject = fullscreenStream;
+      fullscreenVideoRef.current.play().catch((err) => {
+        console.warn("Fullscreen video play notice:", err);
       });
     }
-  }, [remoteStream, type]);
+  }, [fullscreenStream, type]);
+
+  // PiP Video Stream Binding
+  useEffect(() => {
+    if (pipVideoRef.current && pipStream && type === "video" && !isPipCameraOff) {
+      pipVideoRef.current.srcObject = pipStream;
+      pipVideoRef.current.play().catch((err) => {
+        console.warn("PiP video play notice:", err);
+      });
+    }
+  }, [pipStream, isPipCameraOff, type]);
 
   const handleMuteClick = () => {
     setLocalMuted(!localMuted);
@@ -187,8 +197,10 @@ export const CallScreen: React.FC<CallScreenProps> = ({
   };
 
   return (
-    <div className="relative w-full min-h-screen bg-[#040814] text-white flex flex-col items-center justify-between p-4 sm:p-6 overflow-hidden font-outfit select-none min-h-dvh">
-      
+    <div
+      onClick={() => setControlsVisible((prev) => !prev)}
+      className="relative w-full h-dvh min-h-dvh max-h-dvh bg-[#040814] text-white flex flex-col items-center justify-between p-3 sm:p-4 overflow-hidden font-outfit select-none cursor-pointer"
+    >
       {/* Privacy Mode Overlay */}
       <PrivacyOverlay
         isVisible={isPrivacyActive || isBackgrounded}
@@ -204,16 +216,16 @@ export const CallScreen: React.FC<CallScreenProps> = ({
 
       {/* Background Layer */}
       {type === "video" ? (
-        /* Video Background View: Full-bleed Remote Stream or Romantic Background Fallback */
+        /* Video Background View: Full-bleed Stream or Romantic Background Fallback */
         <div className="absolute inset-0 w-full h-full z-0 overflow-hidden pointer-events-none bg-slate-950">
           <video
-            ref={remoteVideoRef}
+            ref={fullscreenVideoRef}
             autoPlay
             playsInline
             className="w-full h-full object-cover"
           />
-          {/* Fallback Artwork if remote video is inactive or connecting */}
-          {!remoteStream && (
+          {/* Fallback Artwork if active video stream is inactive or connecting */}
+          {!fullscreenStream && (
             <>
               <Image
                 src="/images/background.png"
@@ -227,8 +239,8 @@ export const CallScreen: React.FC<CallScreenProps> = ({
             </>
           )}
           {/* Subtle top & bottom dark gradients for control legibility */}
-          <div className="absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-[#040814]/80 to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-[#040814]/90 to-transparent" />
+          <div className="absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-[#040814]/85 to-transparent pointer-events-none" />
+          <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-[#040814]/90 to-transparent pointer-events-none" />
         </div>
       ) : (
         /* Audio Background View */
@@ -245,15 +257,37 @@ export const CallScreen: React.FC<CallScreenProps> = ({
         </div>
       )}
 
+      {/* Screen Sharing Active Banner */}
+      {isScreenSharing && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-30 bg-gradient-to-r from-cyan-500 to-teal-500 text-slate-950 px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-2 shadow-xl backdrop-blur-md animate-pulse pointer-events-auto">
+          <span>🖥️ Sharing Screen</span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleScreenShare?.();
+            }}
+            className="ml-1 px-2.5 py-0.5 rounded-full bg-slate-950 text-white text-[10px] font-semibold hover:bg-slate-800 transition-colors cursor-pointer"
+          >
+            Stop
+          </button>
+        </div>
+      )}
+
       {/* Main Mobile App View Container */}
-      <div className="relative w-full max-w-md mx-auto min-h-[92vh] sm:min-h-[95vh] flex flex-col justify-between pt-1 pb-4 z-10 safe-area-inset">
+      <div className="relative w-full max-w-md mx-auto h-full flex flex-col justify-between pt-0.5 pb-2 z-10 pointer-events-none">
         
-        {/* Top Header Bar (Matching 4 Video page.png) */}
-        <div className="w-full flex items-center justify-between pt-1">
+        {/* Top Header Bar (Matching 4 Video page.png design with no green heart button) */}
+        <div className={`w-full flex items-center justify-between pt-1 transition-all duration-300 ${
+          controlsVisible ? "opacity-100 translate-y-0 pointer-events-auto" : "opacity-0 -translate-y-4 pointer-events-none"
+        }`}>
           {/* Settings / Back Button (Left) */}
           <button
             type="button"
-            onClick={handleBackButtonClick}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleBackButtonClick();
+            }}
             aria-label="Back / Exit call"
             className="w-10 h-10 rounded-full bg-slate-900/60 hover:bg-slate-800/80 border border-white/15 backdrop-blur-md flex items-center justify-center text-slate-200 hover:text-white transition-all cursor-pointer shadow-lg active:scale-95"
           >
@@ -265,7 +299,7 @@ export const CallScreen: React.FC<CallScreenProps> = ({
 
           {/* Center Branding & E2EE Status */}
           <div className="text-center flex flex-col items-center">
-            <h1 className="font-script text-3xl sm:text-4xl font-normal text-white tracking-wide drop-shadow-[0_0_15px_rgba(255,255,255,0.6)] flex items-center justify-center gap-1">
+            <h1 className="font-script text-3.5xl sm:text-4.5xl font-normal text-white tracking-wide drop-shadow-[0_0_15px_rgba(255,255,255,0.6)] flex items-center justify-center gap-1">
               Between Us <span className="text-rose-400 text-2xl sm:text-3xl leading-none">💕</span>
             </h1>
             <div className="flex items-center justify-center gap-1 text-[11px] font-semibold text-emerald-400 drop-shadow mt-0.5">
@@ -278,22 +312,16 @@ export const CallScreen: React.FC<CallScreenProps> = ({
             </p>
           </div>
 
-          {/* Top Right Heart Badge Button */}
-          <button
-            type="button"
-            onClick={() => setShowMoreMenu(true)}
-            aria-label="Partner connection status"
-            className="w-10 h-10 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/50 backdrop-blur-md flex items-center justify-center text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.35)] transition-all cursor-pointer active:scale-95"
-          >
-            <svg className="w-5 h-5 fill-current animate-pulse" viewBox="0 0 24 24">
-              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-            </svg>
-          </button>
+          {/* Top Right Balance Spacer (Green Heart removed per user instruction) */}
+          <div className="w-10 h-10 pointer-events-none" />
         </div>
 
         {/* Back Confirmation Dialog Overlay */}
         {showBackConfirm && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in pointer-events-auto"
+          >
             <div className="bg-[#091325] border border-slate-700 rounded-3xl p-5 max-w-xs w-full text-center space-y-3 shadow-2xl">
               <h3 className="text-sm font-bold text-white">Leave Call?</h3>
               <p className="text-xs text-slate-300">
@@ -324,38 +352,56 @@ export const CallScreen: React.FC<CallScreenProps> = ({
 
         {/* Main Content Area */}
         {type === "video" ? (
-          /* Video Call View: Floating PiP Local Self-Preview + Floating Heart Accent */
+          /* Video Call View: Floating PiP Local/Remote Preview Card (Tap PiP to Swap Fullscreen) */
           <div className="relative w-full flex-1 min-h-[50vh] sm:min-h-[55vh] flex flex-col justify-end items-end p-2 pointer-events-none">
-            {/* Floating Pink Heart Glow (Matching reference image) */}
+            {/* Floating Pink Heart Glow */}
             <div className="absolute top-12 right-4 text-rose-400 text-3xl animate-pulse drop-shadow-[0_0_15px_rgba(244,63,94,0.6)] pointer-events-none">
               ❤️
             </div>
 
-            {/* Floating Local Self-Preview Card (PiP in bottom-right) */}
-            <div className="relative w-32 h-44 sm:w-36 sm:h-48 rounded-[22px] overflow-hidden bg-slate-950 border-2 border-white/20 shadow-2xl pointer-events-auto group backdrop-blur-md">
-              {!localCameraOff && localStream ? (
+            {/* Floating PiP Card (Tap to swap fullscreen & PiP streams!) */}
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsStreamSwapped((prev) => !prev);
+              }}
+              aria-label="Tap to swap fullscreen stream"
+              className="relative w-32 h-44 sm:w-36 sm:h-48 rounded-[22px] overflow-hidden bg-slate-950 border-2 border-white/25 shadow-2xl pointer-events-auto group backdrop-blur-md cursor-pointer transition-transform hover:scale-105 active:scale-95"
+            >
+              {!isPipCameraOff && pipStream ? (
                 <video
-                  ref={localVideoRef}
+                  ref={pipVideoRef}
                   autoPlay
                   playsInline
-                  muted
+                  muted={!isStreamSwapped}
                   className="w-full h-full object-cover"
                 />
               ) : (
-                /* Camera Off Local Placeholder */
-                <div className="w-full h-full bg-slate-900 flex flex-col items-center justify-center text-slate-400 p-2">
+                /* Camera Off Placeholder */
+                <div className="w-full h-full bg-slate-900 flex flex-col items-center justify-center text-slate-400 p-2 text-center">
                   <span className="text-xl mb-1">📷</span>
-                  <span className="text-[10px] font-semibold text-slate-300">Cam Off</span>
+                  <span className="text-[10px] font-semibold text-slate-300">
+                    {isStreamSwapped ? "Partner Off" : "Cam Off"}
+                  </span>
                 </div>
               )}
 
-              {/* Camera Switch Button inside PiP (Matching reference image icon) */}
-              {onSwitchCamera && (
+              {/* Stream Swap Indicator Badge (Top Left of PiP) */}
+              <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-slate-950/70 border border-white/20 backdrop-blur-md text-[9px] font-bold text-white flex items-center gap-1 shadow">
+                <span>⇄</span>
+                <span>{isStreamSwapped ? "Remote" : "You"}</span>
+              </div>
+
+              {/* Front/Rear Camera Flip Button inside PiP (Bottom Right) */}
+              {onSwitchCamera && !isStreamSwapped && (
                 <button
                   type="button"
-                  onClick={onSwitchCamera}
-                  aria-label="Switch camera (front/rear)"
-                  className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-slate-950/75 hover:bg-slate-900 border border-white/30 flex items-center justify-center text-white backdrop-blur-md transition-transform active:scale-90 cursor-pointer shadow-lg"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSwitchCamera();
+                  }}
+                  aria-label="Switch front or back camera"
+                  className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-slate-950/80 hover:bg-slate-900 border border-white/30 flex items-center justify-center text-white backdrop-blur-md transition-transform active:scale-90 cursor-pointer shadow-lg"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -365,10 +411,10 @@ export const CallScreen: React.FC<CallScreenProps> = ({
             </div>
           </div>
         ) : (
-          /* Audio Call View (Matching 3 Audio page(1).png) */
-          <div className="w-full flex-1 flex flex-col items-center justify-center my-2 sm:my-4 text-center">
+          /* Audio Call View */
+          <div className="w-full flex-1 flex flex-col items-center justify-center my-2 sm:my-4 text-center pointer-events-none">
             {/* Partner Avatar with Glowing Border Ring */}
-            <div className="relative">
+            <div className="relative pointer-events-auto">
               <div
                 className={`relative w-36 h-36 sm:w-40 sm:h-40 rounded-full p-[3px] bg-gradient-to-tr from-amber-400/90 via-emerald-400 to-sky-400 transition-all duration-500 ${
                   isConnected
@@ -421,7 +467,7 @@ export const CallScreen: React.FC<CallScreenProps> = ({
 
         {/* Safety Code Verification Overlay */}
         {showSafetyCheck && (
-          <div className="my-2 w-full">
+          <div className="my-2 w-full pointer-events-auto" onClick={(e) => e.stopPropagation()}>
             <SafetyVerification
               onVerified={() => setShowSafetyCheck(false)}
               onClose={() => setShowSafetyCheck(false)}
@@ -429,17 +475,22 @@ export const CallScreen: React.FC<CallScreenProps> = ({
           </div>
         )}
 
-        {/* Bottom Call Controls Panel (Matching 4 Video page.png & 3 Audio page.png) */}
-        <div className="w-full pt-2">
+        {/* Bottom Call Controls Panel (Fades out seamlessly when controlsVisible === false) */}
+        <div className={`w-full pt-2 transition-all duration-300 ${
+          controlsVisible ? "opacity-100 translate-y-0 pointer-events-auto" : "opacity-0 translate-y-4 pointer-events-none"
+        }`}>
           {/* Unified Controls Layout (Mic, Camera, End Call, Speaker, More) */}
           <div className="flex flex-col items-center space-y-4">
             {/* Control Buttons Row */}
-            <div className="flex items-center justify-center gap-4 sm:gap-6 w-full px-2">
+            <div className="flex items-center justify-center gap-3.5 sm:gap-5 w-full px-2">
               {/* 1. Mic Toggle */}
               <div className="flex flex-col items-center">
                 <button
                   type="button"
-                  onClick={handleMuteClick}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleMuteClick();
+                  }}
                   aria-label={localMuted ? "Unmute microphone" : "Mute microphone"}
                   className={`w-13 h-13 sm:w-15 sm:h-15 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-lg active:scale-95 ${
                     localMuted
@@ -460,7 +511,10 @@ export const CallScreen: React.FC<CallScreenProps> = ({
               <div className="flex flex-col items-center">
                 <button
                   type="button"
-                  onClick={handleVideoClick}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleVideoClick();
+                  }}
                   aria-label={localCameraOff ? "Turn camera on" : "Turn camera off"}
                   className={`w-13 h-13 sm:w-15 sm:h-15 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-lg active:scale-95 ${
                     localCameraOff
@@ -481,7 +535,10 @@ export const CallScreen: React.FC<CallScreenProps> = ({
               <div className="flex flex-col items-center">
                 <button
                   type="button"
-                  onClick={onEndCall}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEndCall();
+                  }}
                   aria-label="End call"
                   className="w-16 h-16 sm:w-18 sm:h-18 rounded-full bg-gradient-to-r from-rose-600 via-red-600 to-rose-700 hover:from-rose-500 hover:to-red-500 text-white flex items-center justify-center shadow-[0_0_30px_rgba(244,63,94,0.55)] hover:shadow-[0_0_40px_rgba(244,63,94,0.75)] border border-rose-400/40 transition-all cursor-pointer active:scale-95 group"
                 >
@@ -498,7 +555,10 @@ export const CallScreen: React.FC<CallScreenProps> = ({
               <div className="flex flex-col items-center">
                 <button
                   type="button"
-                  onClick={handleToggleSpeaker}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleToggleSpeaker();
+                  }}
                   aria-label={isSpeakerOn ? "Turn speaker off" : "Turn speaker on"}
                   className={`w-13 h-13 sm:w-15 sm:h-15 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-lg active:scale-95 ${
                     isSpeakerOn
@@ -519,7 +579,10 @@ export const CallScreen: React.FC<CallScreenProps> = ({
               <div className="flex flex-col items-center">
                 <button
                   type="button"
-                  onClick={() => setShowMoreMenu(true)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowMoreMenu(true);
+                  }}
                   aria-label="More call options"
                   className="w-13 h-13 sm:w-15 sm:h-15 rounded-full bg-slate-900/80 border border-white/15 text-white flex items-center justify-center hover:bg-slate-800 transition-all cursor-pointer shadow-lg active:scale-95"
                 >
@@ -543,7 +606,10 @@ export const CallScreen: React.FC<CallScreenProps> = ({
         onClose={() => setShowMoreMenu(false)}
         partnerName={partnerName}
         isSpeakerOn={isSpeakerOn}
+        isScreenSharing={isScreenSharing}
         onToggleSpeaker={handleToggleSpeaker}
+        onToggleScreenShare={onToggleScreenShare}
+        onSwitchCamera={onSwitchCamera}
         onOpenSafetyVerification={() => setShowSafetyCheck(true)}
         onEndCall={onEndCall}
         connectionState={typeof callState === "string" ? callState : "Connected"}

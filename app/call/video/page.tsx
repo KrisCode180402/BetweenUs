@@ -140,6 +140,21 @@ export default function VideoCallPage() {
     router.push("/home");
   };
 
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
+
+  const handleToggleScreenShare = async () => {
+    if (callManagerRef.current) {
+      try {
+        const isSharing = await callManagerRef.current.toggleScreenShare();
+        setIsScreenSharing(isSharing);
+      } catch (err: any) {
+        if (err.message && !err.message.includes("denied")) {
+          setErrorMessage(err.message);
+        }
+      }
+    }
+  };
+
   const handleToggleMute = () => {
     if (callManagerRef.current) {
       const muted = callManagerRef.current.toggleMute();
@@ -226,8 +241,10 @@ export default function VideoCallPage() {
       remoteStream={remoteStream}
       isMuted={isMuted}
       isVideoOff={isVideoOff}
+      isScreenSharing={isScreenSharing}
       onToggleMute={handleToggleMute}
       onToggleVideo={handleToggleVideo}
+      onToggleScreenShare={handleToggleScreenShare}
       onSwitchCamera={handleSwitchCamera}
       onEndCall={handleEndCall}
     />

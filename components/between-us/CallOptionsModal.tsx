@@ -7,7 +7,10 @@ interface CallOptionsModalProps {
   onClose: () => void;
   partnerName: string;
   isSpeakerOn: boolean;
+  isScreenSharing?: boolean | undefined;
   onToggleSpeaker: () => void;
+  onToggleScreenShare?: (() => void) | undefined;
+  onSwitchCamera?: (() => void) | undefined;
   onOpenSafetyVerification: () => void;
   onEndCall: () => void;
   iceState?: string | undefined;
@@ -19,7 +22,10 @@ export const CallOptionsModal: React.FC<CallOptionsModalProps> = ({
   onClose,
   partnerName,
   isSpeakerOn,
+  isScreenSharing = false,
   onToggleSpeaker,
+  onToggleScreenShare,
+  onSwitchCamera,
   onOpenSafetyVerification,
   onEndCall,
   iceState = "connected",
@@ -62,6 +68,60 @@ export const CallOptionsModal: React.FC<CallOptionsModalProps> = ({
 
         {/* Menu Items */}
         <div className="space-y-2">
+          {/* Screen Share Option */}
+          {onToggleScreenShare && (
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onToggleScreenShare();
+              }}
+              aria-label="Toggle screen sharing"
+              className="w-full p-3 rounded-2xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700/60 flex items-center justify-between text-slate-200 transition-all cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center">
+                  🖥️
+                </div>
+                <div className="text-left">
+                  <p className="text-xs font-bold text-white">Screen Share</p>
+                  <p className="text-[11px] text-slate-400">
+                    {isScreenSharing ? "Sharing active · Tap to stop" : "Share device screen live"}
+                  </p>
+                </div>
+              </div>
+              <span className={`text-xs font-semibold ${isScreenSharing ? "text-cyan-400" : "text-slate-400"}`}>
+                {isScreenSharing ? "SHARING" : "START"}
+              </span>
+            </button>
+          )}
+
+          {/* Switch Camera Option */}
+          {onSwitchCamera && (
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onSwitchCamera();
+              }}
+              aria-label="Switch camera front or rear"
+              className="w-full p-3 rounded-2xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700/60 flex items-center justify-between text-slate-200 transition-all cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                  🔄
+                </div>
+                <div className="text-left">
+                  <p className="text-xs font-bold text-white">Flip Camera</p>
+                  <p className="text-[11px] text-slate-400">
+                    Switch front / back camera
+                  </p>
+                </div>
+              </div>
+              <span className="text-xs text-amber-400 font-semibold">FLIP</span>
+            </button>
+          )}
+
           {/* Audio Output Option */}
           <button
             type="button"
