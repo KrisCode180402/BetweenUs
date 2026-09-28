@@ -94,7 +94,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   }
 
   return (
-    <div className="relative w-full h-full min-h-full max-h-full bg-[#040814] text-white flex flex-col items-center justify-between p-3 sm:p-4 overflow-hidden overscroll-none touch-none font-outfit select-none">
+    <div className="relative w-full h-dvh min-h-dvh max-h-dvh bg-[#040814] text-white flex flex-col items-center justify-between p-3 sm:p-4 overflow-hidden font-outfit select-none">
       {/* Full-Screen Romantic Background Artwork (Background.png) */}
       <div className="absolute inset-0 w-full h-full z-0 overflow-hidden pointer-events-none">
         <Image
@@ -109,8 +109,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         <div className="absolute inset-0 bg-gradient-to-b from-[#040814]/30 via-transparent to-[#040814]/90 pointer-events-none" />
       </div>
 
-      {/* Main Responsive Mobile PWA Container */}
-      <div className="relative w-full max-w-md mx-auto h-full flex flex-col justify-between pt-0.5 pb-2 z-10 overflow-hidden">
+      {/* Main Responsive Mobile Container */}
+      <div className="relative w-full max-w-md mx-auto h-full flex flex-col justify-between pt-0.5 pb-4 sm:pb-6 z-10 overflow-y-auto sm:overflow-hidden scrollbar-none">
         
         {/* Top Header Navigation */}
         <HomeHeader
@@ -132,10 +132,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         />
 
         {/* Bottom Security Card */}
-        <SecurityCard
-          partnerName={partnerName}
-          onClick={() => setIsSettingsOpen(true)}
-        />
+        <div className="w-full flex-shrink-0 pt-1">
+          <SecurityCard
+            partnerName={partnerName}
+            onClick={() => setIsSettingsOpen(false)}
+          />
+        </div>
       </div>
 
       {/* Settings & Privacy Modal */}

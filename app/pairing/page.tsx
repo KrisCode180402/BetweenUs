@@ -45,7 +45,7 @@ export default function PairingPage() {
   }
 
   return (
-    <div className="relative w-full h-full min-h-full max-h-full bg-[#040814] text-white flex flex-col items-center justify-between p-3 sm:p-4 overflow-hidden overscroll-none touch-none font-outfit select-none">
+    <div className="relative w-full h-dvh min-h-dvh max-h-dvh bg-[#040814] text-white flex flex-col items-center justify-between p-3 sm:p-4 overflow-hidden font-outfit select-none">
       
       {/* Full-Screen Romantic Background Artwork (Starry Sky + Sunset Couple Lake) */}
       <div className="absolute inset-0 w-full h-full z-0 overflow-hidden pointer-events-none">
@@ -62,24 +62,24 @@ export default function PairingPage() {
       </div>
 
       {/* Main Mobile App Container (Constrained to fit viewport cleanly) */}
-      <div className="relative w-full max-w-md mx-auto h-full flex flex-col justify-between pt-0.5 pb-2 z-10 overflow-hidden">
+      <div className="relative w-full max-w-md mx-auto h-full flex flex-col justify-between pt-0.5 pb-4 sm:pb-6 z-10 overflow-y-auto sm:overflow-hidden scrollbar-none">
         
         {/* Top Header Row with Language Selector on Right */}
-        <div className="w-full flex items-center justify-end pt-0.5 px-1">
+        <div className="w-full flex items-center justify-end pt-0.5 px-1 flex-shrink-0">
           <LanguageSelector />
         </div>
 
-        {/* Branding & Feature Group — Positioned over the lower heart glow as in 1 Pairing page.png */}
-        <div className="w-full flex flex-col items-center mt-7 sm:mt-10">
+        {/* Branding & Feature Group — Positioned gracefully below upper heart glow */}
+        <div className="w-full flex flex-col items-center mt-3 sm:mt-6 flex-shrink-0">
           <PairingHeader />
           <FeatureBadges />
         </div>
 
         {/* Flexible Middle Open Area — Displays Romantic Couple Sunset Artwork */}
-        <div className="w-full flex-1 min-h-[60px] pointer-events-none" />
+        <div className="w-full flex-1 min-h-[30px] pointer-events-none" />
 
         {/* Primary Action Controls (Positioned at bottom over dark shoreline) */}
-        <div className="w-full space-y-2 pt-1">
+        <div className="w-full space-y-2 pt-1 pb-1 flex-shrink-0">
           
           {/* Button 1: Generate Pairing Code (Emerald/Green Emphasis) */}
           <button

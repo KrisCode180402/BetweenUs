@@ -38,22 +38,22 @@ export const PartnerConnection: React.FC<PartnerConnectionProps> = ({
     : "bg-slate-500 border-slate-400";
 
   return (
-    <section className="w-full flex flex-col items-center justify-center my-3 sm:my-5 select-none">
+    <section className="w-full flex flex-col items-center justify-center my-2 sm:my-3 select-none flex-shrink-0">
       {/* Avatar Container with Golden/Emerald Halo Ring */}
       <div className="relative">
         {/* Outer glowing border halo ring */}
-        <div className="relative w-32 h-32 sm:w-36 sm:h-36 rounded-full p-[3px] bg-gradient-to-tr from-amber-400/90 via-emerald-400 to-sky-400 shadow-[0_0_35px_rgba(245,158,11,0.35)]">
+        <div className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-full p-[3px] bg-gradient-to-tr from-amber-400/90 via-emerald-400 to-sky-400 shadow-[0_0_30px_rgba(245,158,11,0.35)]">
           <div className="w-full h-full rounded-full bg-slate-950 flex items-center justify-center overflow-hidden border-2 border-slate-900/90 relative">
             {avatarUrl ? (
               <Image
                 src={avatarUrl}
                 alt={partnerName}
                 fill
-                sizes="144px"
+                sizes="128px"
                 className="object-cover w-full h-full"
               />
             ) : (
-              <div className="w-full h-full bg-gradient-to-tr from-teal-900 via-slate-900 to-indigo-950 flex items-center justify-center text-white font-bold text-4xl sm:text-5xl select-none shadow-inner">
+              <div className="w-full h-full bg-gradient-to-tr from-teal-900 via-slate-900 to-indigo-950 flex items-center justify-center text-white font-bold text-3xl sm:text-4xl select-none shadow-inner">
                 {partnerName.charAt(0).toUpperCase()}
               </div>
             )}
@@ -61,27 +61,27 @@ export const PartnerConnection: React.FC<PartnerConnectionProps> = ({
 
           {/* Online / Connection Status Dot Badge */}
           <span
-            className={`absolute bottom-1 right-1 w-5.5 h-5.5 rounded-full border-3 border-[#040814] ${dotColorClass} ${
+            className={`absolute bottom-0.5 right-0.5 w-5 h-5 rounded-full border-3 border-[#040814] ${dotColorClass} ${
               isOnline || isConnecting ? "animate-pulse" : ""
             }`}
           />
         </div>
 
-        {/* Small floating pink heart accent (matching reference image) */}
-        <div className="absolute -top-1 -right-2 text-rose-400 text-lg animate-bounce duration-1000">
+        {/* Small floating pink heart accent */}
+        <div className="absolute -top-1 -right-2 text-rose-400 text-base animate-bounce duration-1000">
           💕
         </div>
       </div>
 
       {/* Partner Name Display */}
-      <h2 className="font-script text-3.5xl sm:text-4.5xl text-white font-normal mt-3 tracking-wide drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)] flex items-center gap-1.5">
+      <h2 className="font-script text-3xl sm:text-4xl text-white font-normal mt-2 tracking-wide drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)] flex items-center gap-1.5">
         <span>{partnerName}</span>
-        <span className="text-rose-400 text-2xl sm:text-3xl">♡</span>
+        <span className="text-rose-400 text-xl sm:text-2xl">♡</span>
       </h2>
 
       {/* Connection Status Pill */}
       <div
-        className={`mt-2 px-4 py-1 rounded-full bg-slate-900/75 border backdrop-blur-md flex items-center gap-2 text-xs font-semibold shadow-md transition-colors ${
+        className={`mt-1.5 px-3.5 py-0.5 rounded-full bg-slate-900/75 border backdrop-blur-md flex items-center gap-2 text-xs font-semibold shadow-md transition-colors ${
           isOnline
             ? "border-emerald-500/40 text-emerald-300"
             : isConnecting
