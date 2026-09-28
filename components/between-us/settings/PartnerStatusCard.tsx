@@ -18,8 +18,8 @@ interface PartnerStatusCardProps {
 export const PartnerStatusCard: React.FC<PartnerStatusCardProps> = ({
   myDeviceName,
   partnerName,
-  myAvatarUrl,
-  partnerAvatarUrl,
+  myAvatarUrl = "/images/user_avatar_kris.png",
+  partnerAvatarUrl = "/images/partner_avatar_jona.png",
   isPaired,
   isVerified = true,
   isOnline = true,
@@ -27,70 +27,65 @@ export const PartnerStatusCard: React.FC<PartnerStatusCardProps> = ({
   onVerifyClick,
 }) => {
   return (
-    <div className="w-full my-4 p-4 sm:p-5 rounded-3xl bg-gradient-to-br from-[#0B172A]/90 via-[#091325]/90 to-[#0A1222]/90 border border-teal-500/30 backdrop-blur-xl shadow-2xl select-none">
+    <div className="w-full my-3 p-4 sm:p-5 rounded-[26px] bg-[#091325]/85 border border-slate-800/90 backdrop-blur-xl shadow-2xl select-none font-outfit">
       <div className="flex items-center justify-between px-1 py-1">
-        {/* Local User (My Device) */}
+        {/* Left Profile: Local User (Kris) */}
         <div className="flex flex-col items-center text-center flex-1">
-          <div className="relative w-16 h-16 sm:w-18 sm:h-18 rounded-full border-2 border-sky-400 p-[2px] shadow-[0_0_20px_rgba(56,189,248,0.35)]">
+          <div className="relative w-18 h-18 sm:w-20 sm:h-20 rounded-full border-2 border-cyan-400 p-0.5 shadow-[0_0_22px_rgba(34,211,238,0.45)]">
             <div className="w-full h-full rounded-full bg-slate-950 flex items-center justify-center overflow-hidden relative">
               {myAvatarUrl ? (
                 <Image
                   src={myAvatarUrl}
                   alt={myDeviceName}
                   fill
-                  sizes="72px"
+                  sizes="80px"
                   className="object-cover w-full h-full"
                 />
               ) : (
-                <div className="w-full h-full bg-gradient-to-tr from-sky-950 to-slate-900 flex items-center justify-center text-sky-300 font-bold text-xl sm:text-2xl">
+                <div className="w-full h-full bg-gradient-to-tr from-sky-950 to-slate-900 flex items-center justify-center text-sky-300 font-bold text-2xl">
                   {myDeviceName.charAt(0).toUpperCase()}
                 </div>
               )}
             </div>
-            {/* Online Green Indicator */}
-            <span className="absolute bottom-0 right-0 w-4 h-4 rounded-full bg-emerald-400 border-2 border-[#091325] shadow-md animate-pulse" />
           </div>
-          <span className="text-xs sm:text-sm font-bold text-white mt-2 tracking-wide">
+          <span className="text-sm font-bold text-white mt-2 tracking-wide">
             {myDeviceName}
           </span>
-          <span className="text-[10px] sm:text-xs text-emerald-400 font-medium flex items-center gap-1 mt-0.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+          <span className="text-xs text-emerald-400 font-medium flex items-center gap-1.5 mt-0.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             <span>Online</span>
           </span>
         </div>
 
-        {/* Center Glowing Heart & Encryption Status */}
-        <div className="flex flex-col items-center justify-center px-2 flex-shrink-0 text-center">
-          <div className="relative mb-1">
-            <svg
-              className="w-7 h-7 sm:w-8 sm:h-8 text-rose-400 fill-current animate-pulse drop-shadow-[0_0_12px_rgba(251,113,133,0.7)]"
-              viewBox="0 0 24 24"
-            >
-              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-            </svg>
+        {/* Center Section: Glowing Heart & Verification Badge */}
+        <div className="flex flex-col items-center justify-center px-2 flex-shrink-0 text-center space-y-1.5">
+          {/* Connector Dots + Glowing Pink Heart */}
+          <div className="flex items-center justify-center gap-1.5 text-rose-400">
+            <span className="w-1 h-1 rounded-full bg-rose-400/40" />
+            <span className="w-1 h-1 rounded-full bg-rose-400/70" />
+            <span className="text-xl sm:text-2xl animate-pulse drop-shadow-[0_0_12px_rgba(244,63,94,0.8)]">
+              💕
+            </span>
+            <span className="w-1 h-1 rounded-full bg-rose-400/70" />
+            <span className="w-1 h-1 rounded-full bg-rose-400/40" />
           </div>
 
+          {/* Verification Badge */}
           {isPaired ? (
             isVerified ? (
-              <div
+              <button
+                type="button"
                 onClick={onVerifyClick}
-                className="flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-emerald-400 bg-emerald-950/70 px-2.5 py-1 rounded-full border border-emerald-500/40 shadow-sm cursor-pointer hover:bg-emerald-900/80 transition-all"
+                className="flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-emerald-500/40 shadow-sm cursor-pointer hover:bg-emerald-900/80 transition-all"
               >
                 <svg
-                  className="w-3.5 h-3.5"
-                  fill="none"
+                  className="w-3.5 h-3.5 fill-current"
                   viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2.5}
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-                  />
+                  <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z" />
                 </svg>
                 <span>Paired & Verified</span>
-              </div>
+              </button>
             ) : (
               <button
                 type="button"
@@ -110,53 +105,41 @@ export const PartnerStatusCard: React.FC<PartnerStatusCardProps> = ({
             </button>
           )}
 
-          <span className="text-[10px] text-slate-300/80 font-mono mt-1 tracking-tight">
+          <span className="text-[10px] text-slate-400 font-medium tracking-tight">
             End-to-End Encrypted
           </span>
         </div>
 
-        {/* Partner Device */}
+        {/* Right Profile: Partner User (Jona) */}
         <div className="flex flex-col items-center text-center flex-1">
-          <div className="relative w-16 h-16 sm:w-18 sm:h-18 rounded-full border-2 border-emerald-400 p-[2px] shadow-[0_0_20px_rgba(52,211,153,0.35)]">
+          <div className="relative w-18 h-18 sm:w-20 sm:h-20 rounded-full border-2 border-emerald-400 p-0.5 shadow-[0_0_22px_rgba(52,211,153,0.45)]">
             <div className="w-full h-full rounded-full bg-slate-950 flex items-center justify-center overflow-hidden relative">
               {partnerAvatarUrl ? (
                 <Image
                   src={partnerAvatarUrl}
                   alt={partnerName}
                   fill
-                  sizes="72px"
+                  sizes="80px"
                   className="object-cover w-full h-full"
                 />
               ) : (
-                <div className="w-full h-full bg-gradient-to-tr from-emerald-950 to-slate-900 flex items-center justify-center text-emerald-300 font-bold text-xl sm:text-2xl">
+                <div className="w-full h-full bg-gradient-to-tr from-emerald-950 to-slate-900 flex items-center justify-center text-emerald-300 font-bold text-2xl">
                   {partnerName.charAt(0).toUpperCase()}
                 </div>
               )}
             </div>
-            {/* Online Green Indicator */}
-            {isPaired && (
-              <span
-                className={`absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-[#091325] shadow-md ${
-                  isOnline ? "bg-emerald-400 animate-pulse" : "bg-slate-500"
-                }`}
-              />
-            )}
           </div>
-          <span className="text-xs sm:text-sm font-bold text-white mt-2 tracking-wide">
+          <span className="text-sm font-bold text-white mt-2 tracking-wide">
             {partnerName}
           </span>
           <span
-            className={`text-[10px] sm:text-xs font-medium flex items-center gap-1 mt-0.5 ${
-              isPaired
-                ? isOnline
-                  ? "text-emerald-400"
-                  : "text-slate-400"
-                : "text-slate-500"
+            className={`text-xs font-medium flex items-center gap-1.5 mt-0.5 ${
+              isPaired && isOnline ? "text-emerald-400" : "text-slate-400"
             }`}
           >
             <span
               className={`w-1.5 h-1.5 rounded-full ${
-                isPaired && isOnline ? "bg-emerald-400" : "bg-slate-500"
+                isPaired && isOnline ? "bg-emerald-400 animate-pulse" : "bg-slate-500"
               }`}
             />
             <span>{isPaired ? (isOnline ? "Online" : "Offline") : "Not Paired"}</span>

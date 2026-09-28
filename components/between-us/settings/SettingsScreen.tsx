@@ -262,8 +262,43 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     }
   };
 
+  // PWA Install state
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isPwaInstalled, setIsPwaInstalled] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if (window.matchMedia("(display-mode: standalone)").matches) {
+      setIsPwaInstalled(true);
+    }
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallPwa = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === "accepted") {
+        setIsPwaInstalled(true);
+        setTestMessage("Between Us PWA Installed successfully!");
+      }
+      setDeferredPrompt(null);
+    } else {
+      setTestMessage("To install PWA: Tap your browser menu ➔ 'Add to Home Screen'.");
+      setTimeout(() => setTestMessage(null), 4000);
+    }
+  };
+
   return (
-    <div className="relative w-full min-h-screen bg-[#040814] text-white flex flex-col items-center justify-between p-4 sm:p-6 overflow-hidden font-outfit select-none min-h-dvh">
+    <div className="fixed inset-0 w-screen h-dvh min-h-dvh max-h-dvh bg-[#040814] text-white flex flex-col items-center justify-between p-3 sm:p-4 overflow-hidden font-outfit select-none overscroll-none">
       {/* Ambient Romantic Dark Overlay Background */}
       <div className="absolute inset-0 w-full h-full z-0 overflow-hidden pointer-events-none">
         <Image
@@ -278,10 +313,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       </div>
 
       {/* Main Container */}
-      <div className="relative w-full max-w-md mx-auto min-h-[92vh] sm:min-h-[95vh] flex flex-col justify-between pt-1 pb-4 z-10 safe-area-inset">
+      <div className="relative w-full max-w-md mx-auto h-full flex flex-col justify-between pt-0.5 pb-2 z-10 pointer-events-none">
         
         {/* Top Header Bar (Matching 5 Settings page.png) */}
-        <div className="w-full flex items-center justify-between pt-1 pb-2">
+        <div className="w-full flex items-center justify-between pt-1 pb-2 pointer-events-auto">
           {/* Back Button */}
           <button
             type="button"
@@ -296,7 +331,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
           {/* Title & Subtitle */}
           <div className="text-center flex flex-col items-center">
-            <h1 className="font-script text-3xl sm:text-4xl font-normal text-white tracking-wide drop-shadow-[0_0_15px_rgba(255,255,255,0.6)] flex items-center justify-center gap-1">
+            <h1 className="font-script text-3.5xl sm:text-4.5xl font-normal text-white tracking-wide drop-shadow-[0_0_15px_rgba(255,255,255,0.6)] flex items-center justify-center gap-1">
               Between Us <span className="text-rose-400 text-2xl sm:text-3xl leading-none">💕</span>
             </h1>
             <p className="text-xs font-semibold text-slate-300 tracking-wide mt-0.5">
@@ -309,13 +344,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
         {/* Feedback Message Toast */}
         {testMessage && (
-          <div className="my-2 p-2.5 rounded-2xl bg-teal-950/90 border border-teal-500/40 text-xs text-teal-200 text-center animate-fade-in shadow-lg">
+          <div className="my-1.5 p-2.5 rounded-2xl bg-teal-950/90 border border-teal-500/40 text-xs text-teal-200 text-center animate-fade-in shadow-lg pointer-events-auto">
             {testMessage}
           </div>
         )}
 
-        {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto space-y-3 py-1 pr-0.5">
+        {/* Scrollable Content Container (Smooth Mobile Touch-Pan-Y Scrolling) */}
+        <div className="flex-1 w-full overflow-y-auto overflow-x-hidden touch-pan-y overscroll-contain space-y-3 py-1 px-1 pointer-events-auto scrollbar-none">
           {/* Top Paired Partner Status Card */}
           <PartnerStatusCard
             myDeviceName={myDeviceName}
@@ -326,6 +361,26 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             onPairClick={() => router.push("/pairing")}
             onVerifyClick={() => setActiveTab("pairing")}
           />
+
+          {/* PWA App Banner (Install PWA) */}
+          {!isPwaInstalled && (
+            <div className="w-full p-3.5 rounded-2.5xl bg-gradient-to-r from-sky-950/70 via-indigo-950/70 to-slate-900/80 border border-sky-500/30 backdrop-blur-md flex items-center justify-between shadow-xl">
+              <div className="flex items-center gap-3">
+                <span className="text-xl">📲</span>
+                <div>
+                  <p className="text-xs font-bold text-white">Install PWA Web App</p>
+                  <p className="text-[10px] text-slate-300">Fast, standalone full-screen experience</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleInstallPwa}
+                className="px-3 py-1.5 bg-sky-500 hover:bg-sky-400 text-slate-950 rounded-xl text-xs font-bold shadow-md cursor-pointer transition-all active:scale-95"
+              >
+                Install
+              </button>
+            </div>
+          )}
 
           {/* 7 Settings Navigation Rows */}
           <SettingsNavigationList
