@@ -5,6 +5,7 @@ import { SWRegister } from "@/components/between-us/SWRegister";
 import { ErrorBoundary } from "@/components/between-us/ErrorBoundary";
 import { InstallPrompt } from "@/components/between-us/InstallPrompt";
 import { GlobalIncomingCallHandler } from "@/components/between-us/GlobalIncomingCallHandler";
+import { ActiveCallBanner } from "@/components/between-us/ActiveCallBanner";
 
 const outfit = Outfit({
   subsets: ["latin"],
@@ -35,9 +36,13 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icons/icon-512x512.png", sizes: "512x512", type: "image/png" },
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon.png", sizes: "32x32", type: "image/png" },
+      { url: "/icons/tab-icon-16x16.png", sizes: "16x16", type: "image/png" },
+      { url: "/icons/tab-icon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icons/tab-icon-48x48.png", sizes: "48x48", type: "image/png" },
     ],
+    shortcut: ["/favicon.ico"],
     apple: [
       { url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
     ],
@@ -66,6 +71,7 @@ export default function RootLayout({
             {children}
           </main>
           <GlobalIncomingCallHandler />
+          <ActiveCallBanner />
           <InstallPrompt />
           <SWRegister />
         </ErrorBoundary>

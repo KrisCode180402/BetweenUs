@@ -233,6 +233,28 @@ export class PeerConnectionManager {
   }
 
   /**
+   * Triggers ICE restart for network recovery (WiFi -> Cellular switch, ICE disconnected).
+   */
+  public async restartIce(callType: CallType = "audio"): Promise<string> {
+    if (!this.pc) throw new Error("RTCPeerConnection not initialized.");
+
+    const offerOptions: RTCOfferOptions = {
+      iceRestart: true,
+      offerToReceiveAudio: true,
+      offerToReceiveVideo: callType === "video",
+    };
+
+    const offer = await this.pc.createOffer(offerOptions);
+    await this.pc.setLocalDescription(offer);
+
+    if (!this.pc.localDescription?.sdp) {
+      throw new Error("Failed to generate ICE restart SDP offer description.");
+    }
+
+    return this.pc.localDescription.sdp;
+  }
+
+  /**
    * Generates SDP Answer (Receiver flow).
    */
   public async createAnswer(remoteOfferSdp: string): Promise<string> {

@@ -6,6 +6,7 @@ import { CallScreen } from "@/components/between-us/CallScreen";
 import { ErrorState } from "@/components/between-us/ErrorState";
 import { ConnectionCallState } from "@/components/between-us/ConnectionStatus";
 import { AudioCallManager, getPendingIncomingCall, clearPendingIncomingCall } from "@/lib/webrtc/call-manager";
+import { callSessionStore } from "@/lib/webrtc/call-session-store";
 import { CallState } from "@/lib/webrtc/types";
 import { privacyModeManager } from "@/lib/privacy/privacy-mode";
 import { loadPairedPartner } from "@/lib/pairing/partner-store";
@@ -13,15 +14,54 @@ import { loadPairedPartner } from "@/lib/pairing/partner-store";
 export default function VideoCallPage() {
   const router = useRouter();
   const [callState, setCallState] = useState<CallState>(CallState.IDLE);
-  const [partnerName, setPartnerName] = useState<string>("Jona");
+  const [partnerName, setPartnerName] = useState<string>("Partner");
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
 
   const callManagerRef = useRef<AudioCallManager | null>(null);
+
+  const attachEventsToManager = useCallback((manager: AudioCallManager) => {
+    setCallState(manager.getState());
+    setLocalStream(manager.getLocalStream());
+    setRemoteStream(manager.getRemoteStream());
+    setIsMuted(manager.getIsMuted());
+    setIsVideoOff(manager.getIsCameraOff());
+
+    // We override events to sync component state
+    (manager as any).events = {
+      ...(manager as any).events,
+      onCallStateChange: (state: CallState) => {
+        setCallState(state);
+        if (
+          state === CallState.ENDED ||
+          state === CallState.CANCELLED ||
+          state === CallState.REJECTED ||
+          state === CallState.TIMED_OUT
+        ) {
+          setTimeout(() => router.push("/home"), 1000);
+        }
+      },
+      onLocalStream: (stream: MediaStream) => setLocalStream(stream),
+      onRemoteStream: (stream: MediaStream) => setRemoteStream(stream),
+      onMuteChange: (muted: boolean) => setIsMuted(muted),
+      onCameraChange: (cameraOff: boolean) => setIsVideoOff(cameraOff),
+      onError: (err: string) => {
+        if (
+          err &&
+          !err.includes("Connection closed") &&
+          !err.includes("WebSocket") &&
+          !err.includes("CHANNEL_ERROR")
+        ) {
+          setErrorMessage(err);
+        }
+      },
+    };
+  }, [router]);
 
   const initializeCallManager = useCallback((partnerIdentity: any) => {
     if (!callManagerRef.current) {
@@ -40,45 +80,12 @@ export default function VideoCallPage() {
             createdAt: Date.now(),
           },
         },
-        {
-          onCallStateChange: (state) => {
-            setCallState(state);
-            if (
-              state === CallState.ENDED ||
-              state === CallState.CANCELLED ||
-              state === CallState.REJECTED ||
-              state === CallState.TIMED_OUT
-            ) {
-              setTimeout(() => router.push("/home"), 1200);
-            }
-          },
-          onLocalStream: (stream) => {
-            setLocalStream(stream);
-          },
-          onRemoteStream: (stream) => {
-            setRemoteStream(stream);
-          },
-          onMuteChange: (muted) => {
-            setIsMuted(muted);
-          },
-          onCameraChange: (cameraOff) => {
-            setIsVideoOff(cameraOff);
-          },
-          onError: (err) => {
-            if (
-              err &&
-              !err.includes("Connection closed") &&
-              !err.includes("WebSocket") &&
-              !err.includes("CHANNEL_ERROR")
-            ) {
-              setErrorMessage(err);
-            }
-          },
-        }
+        {}
       );
     }
+    attachEventsToManager(callManagerRef.current);
     return callManagerRef.current;
-  }, [router]);
+  }, [attachEventsToManager]);
 
   useEffect(() => {
     async function startVideoCallSession() {
@@ -93,9 +100,17 @@ export default function VideoCallPage() {
         const name =
           (partner as any).partnerName ||
           partner.partnerPublicIdentity?.fingerprint?.substring(0, 6) ||
-          "Jona";
+          "Partner";
         setPartnerName(name);
         setIsInitializing(false);
+
+        // Check if global active call session already exists (e.g. user minimized and returned)
+        const activeSession = callSessionStore.getActiveSession();
+        if (activeSession && activeSession.getCallType() === "video") {
+          callManagerRef.current = activeSession;
+          attachEventsToManager(activeSession);
+          return;
+        }
 
         const manager = initializeCallManager(partner.partnerPublicIdentity);
 
@@ -124,12 +139,34 @@ export default function VideoCallPage() {
 
     startVideoCallSession();
 
-    return () => {
-      if (callManagerRef.current) {
-        callManagerRef.current.endCall();
+    // DO NOT end call on component unmount! Session lives independently in callSessionStore.
+    return () => {};
+  }, [attachEventsToManager, initializeCallManager, router]);
+
+  // Mobile Swipe Back / Hardware Back Navigation Protection
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    window.history.pushState(null, "", window.location.href);
+
+    const handlePopState = (_e: PopStateEvent) => {
+      const state = callManagerRef.current?.getState();
+      if (
+        state === CallState.CONNECTED ||
+        state === CallState.CONNECTING ||
+        state === CallState.RECONNECTING ||
+        state === CallState.OUTGOING_RINGING
+      ) {
+        window.history.pushState(null, "", window.location.href);
+        setShowLeaveConfirm(true);
       }
     };
-  }, [initializeCallManager, router]);
+
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, []);
 
   const handleEndCall = () => {
     if (callManagerRef.current) {
@@ -137,6 +174,11 @@ export default function VideoCallPage() {
     }
     setLocalStream(null);
     setRemoteStream(null);
+    router.push("/home");
+  };
+
+  const handleMinimizeCall = () => {
+    setShowLeaveConfirm(false);
     router.push("/home");
   };
 
@@ -150,7 +192,6 @@ export default function VideoCallPage() {
         const isSharing = await callManagerRef.current.toggleScreenShare();
         setIsScreenSharing(isSharing);
       } catch (err: any) {
-        // Show inline warning on screen without crashing active call
         const msg = err.message || "Screen sharing is not supported on this browser/device.";
         setScreenShareError(msg);
         setTimeout(() => setScreenShareError(null), 4000);
@@ -242,22 +283,63 @@ export default function VideoCallPage() {
   }
 
   return (
-    <CallScreen
-      type="video"
-      partnerName={partnerName}
-      callState={mapCallStateToConnectionStatus(callState)}
-      localStream={localStream}
-      remoteStream={remoteStream}
-      isMuted={isMuted}
-      isVideoOff={isVideoOff}
-      isScreenSharing={isScreenSharing}
-      isFrontCamera={isFrontCamera}
-      screenShareNotice={screenShareError}
-      onToggleMute={handleToggleMute}
-      onToggleVideo={handleToggleVideo}
-      onToggleScreenShare={handleToggleScreenShare}
-      onSwitchCamera={handleSwitchCamera}
-      onEndCall={handleEndCall}
-    />
+    <>
+      <CallScreen
+        type="video"
+        partnerName={partnerName}
+        callState={mapCallStateToConnectionStatus(callState)}
+        localStream={localStream}
+        remoteStream={remoteStream}
+        isMuted={isMuted}
+        isVideoOff={isVideoOff}
+        isScreenSharing={isScreenSharing}
+        isFrontCamera={isFrontCamera}
+        screenShareNotice={screenShareError}
+        onToggleMute={handleToggleMute}
+        onToggleVideo={handleToggleVideo}
+        onToggleScreenShare={handleToggleScreenShare}
+        onSwitchCamera={handleSwitchCamera}
+        onEndCall={handleEndCall}
+      />
+
+      {/* Swipe Back / Navigation Confirmation Modal */}
+      {showLeaveConfirm && (
+        <div className="fixed inset-0 z-[10000] bg-black/80 backdrop-blur-md flex items-center justify-center p-6 font-outfit animate-fade-in">
+          <div className="w-full max-w-sm bg-neutral-900 border border-neutral-800 rounded-3xl p-6 shadow-2xl text-center space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto mb-2">
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+
+            <h3 className="text-lg font-bold text-white">Call in Progress</h3>
+            <p className="text-xs text-neutral-400 leading-relaxed">
+              Are you sure you want to leave or end your video call?
+            </p>
+
+            <div className="flex flex-col gap-2 pt-2">
+              <button
+                onClick={() => setShowLeaveConfirm(false)}
+                className="w-full py-3 rounded-2xl bg-teal-500 hover:bg-teal-400 text-black font-semibold text-sm transition-all shadow-lg shadow-teal-500/20"
+              >
+                Stay in Call
+              </button>
+              <button
+                onClick={handleMinimizeCall}
+                className="w-full py-3 rounded-2xl bg-neutral-800 hover:bg-neutral-700 text-white font-semibold text-sm transition-all border border-neutral-700"
+              >
+                Keep Active in Background
+              </button>
+              <button
+                onClick={handleEndCall}
+                className="w-full py-3 rounded-2xl bg-red-600/80 hover:bg-red-600 text-white font-semibold text-sm transition-all shadow-lg shadow-red-600/20"
+              >
+                End Call
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

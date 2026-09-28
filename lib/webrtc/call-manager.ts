@@ -15,6 +15,8 @@ import { initializeDeviceIdentity, getPublicIdentity } from "../crypto/identity"
 import { cleanupCallSession } from "./cleanup";
 import { ringtoneManager } from "../sound/ringtone";
 import { pushManager } from "../push/push-manager";
+import { wakeLockManager } from "./wakelock-manager";
+import { callSessionStore } from "./call-session-store";
 
 export interface PendingIncomingCall {
   sessionId: string;
@@ -114,6 +116,7 @@ export class AudioCallManager {
   private setState(nextState: CallState): void {
     if (this.stateMachine.canTransitionTo(nextState)) {
       this.stateMachine.transitionTo(nextState);
+      callSessionStore.notifyListeners();
       if (this.events.onCallStateChange) {
         try {
           this.events.onCallStateChange(nextState);
@@ -125,6 +128,7 @@ export class AudioCallManager {
   private dispatchEvent(event: CallEvent): CallState {
     try {
       const nextState = this.stateMachine.dispatch(event);
+      callSessionStore.notifyListeners();
       if (this.events.onCallStateChange) {
         try {
           this.events.onCallStateChange(nextState);
@@ -251,6 +255,7 @@ export class AudioCallManager {
     }
 
     this.options.callType = callType;
+    callSessionStore.setActiveSession(this);
     this.dispatchEvent(CallEvent.START_CALL);
     this.startInitiationTimeout();
 
@@ -422,6 +427,7 @@ export class AudioCallManager {
     }
 
     this.clearRingingTimeout();
+    callSessionStore.setActiveSession(this);
     this.dispatchEvent(CallEvent.ACCEPT);
     const callType = this.incomingInvitation?.callType || this.getCallType();
 
@@ -564,13 +570,22 @@ export class AudioCallManager {
     if (connectionState === "connected") {
       this.clearAllTimers();
       this.dispatchEvent(CallEvent.ICE_CONNECTED);
+      wakeLockManager.acquire().catch(() => {});
     } else if (connectionState === "disconnected" || (connectionState as any) === "checking") {
       if (this.stateMachine.getState() === CallState.CONNECTED) {
         this.dispatchEvent(CallEvent.NETWORK_INTERRUPTED);
         this.startReconnectionTimeout();
+        this.attemptIceRestart();
       }
     } else if (connectionState === "failed") {
-      this.handleFailure("WebRTC peer connection failed.");
+      if (
+        this.stateMachine.getState() === CallState.CONNECTED ||
+        this.stateMachine.getState() === CallState.RECONNECTING
+      ) {
+        this.attemptIceRestart();
+      } else {
+        this.handleFailure("WebRTC peer connection failed.");
+      }
     } else if (connectionState === "closed") {
       if (
         this.stateMachine.getState() === CallState.CONNECTED ||
@@ -578,6 +593,16 @@ export class AudioCallManager {
       ) {
         this.endCall();
       }
+    }
+  }
+
+  public async attemptIceRestart(): Promise<void> {
+    if (!this.pcManager || !this.supabaseSignaling) return;
+    try {
+      const restartOffer = await this.pcManager.restartIce(this.getCallType());
+      await this.supabaseSignaling.sendSdpOffer(this.options.sessionId, restartOffer, this.getCallType());
+    } catch (err) {
+      console.warn("ICE restart negotiation notice:", err);
     }
   }
 
@@ -768,6 +793,8 @@ export class AudioCallManager {
   private cleanupAndEnd(): void {
     this.clearAllTimers();
     ringtoneManager.stopAll();
+    wakeLockManager.release().catch(() => {});
+    callSessionStore.clearActiveSession();
 
     if (this.pcManager) {
       const pc = this.pcManager.getPeerConnection();
