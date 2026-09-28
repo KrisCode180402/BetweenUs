@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { IncomingCallModal } from "./IncomingCallModal";
 import { AudioCallManager, setPendingIncomingCall } from "@/lib/webrtc/call-manager";
 import { IncomingCallInvitation } from "@/lib/webrtc/types";
 import { loadPairedPartner } from "@/lib/pairing/partner-store";
 import { initializeDeviceIdentity } from "@/lib/crypto/identity";
+import { ringtoneManager } from "@/lib/sound/ringtone";
 
 export const GlobalIncomingCallHandler: React.FC = () => {
   const router = useRouter();
@@ -15,9 +16,35 @@ export const GlobalIncomingCallHandler: React.FC = () => {
   const [partnerName, setPartnerName] = useState<string>("Your Partner");
   const callManagerRef = useRef<AudioCallManager | null>(null);
 
-  useEffect(() => {
-    // Don't run global listener if user is already inside an active call page
-    if (pathname.includes("/call/") || pathname === "/audio" || pathname === "/video") {
+  const isCallPage = pathname.startsWith("/call/") || pathname === "/audio" || pathname === "/video";
+
+  const triggerBrowserNotification = useCallback((invitation: IncomingCallInvitation, callerName: string) => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (Notification.permission === "granted") {
+      try {
+        const title = invitation.callType === "video" ? "Incoming Video Call 📹" : "Incoming Audio Call 📞";
+        const notif = new Notification(title, {
+          body: `${callerName} is calling you on Between Us...`,
+          icon: "/icons/icon-192x192.png",
+          badge: "/icons/icon-192x192.png",
+          tag: "incoming-call-notification",
+          requireInteraction: true,
+        });
+
+        notif.onclick = () => {
+          try {
+            window.focus();
+          } catch {}
+          notif.close();
+        };
+      } catch (err) {
+        console.warn("Browser notification creation notice:", err);
+      }
+    }
+  }, []);
+
+  const setupListener = useCallback(async () => {
+    if (isCallPage) {
       if (callManagerRef.current) {
         callManagerRef.current.stopListener();
         callManagerRef.current = null;
@@ -25,76 +52,89 @@ export const GlobalIncomingCallHandler: React.FC = () => {
       return;
     }
 
-    let isMounted = true;
+    try {
+      await initializeDeviceIdentity();
+      const partner = await loadPairedPartner();
+      if (!partner) return;
 
-    async function initIncomingListener() {
-      try {
-        await initializeDeviceIdentity();
-        const partner = await loadPairedPartner();
-        if (!partner || !isMounted) return;
+      const name =
+        (partner as any).partnerName ||
+        partner.partnerPublicIdentity?.fingerprint?.substring(0, 6) ||
+        "Your Partner";
+      setPartnerName(name);
 
-        const name =
-          (partner as any).partnerName ||
-          partner.partnerPublicIdentity?.fingerprint?.substring(0, 6) ||
-          "Your Partner";
-        setPartnerName(name);
-
-        if (!callManagerRef.current) {
-          callManagerRef.current = new AudioCallManager(
-            {
-              serverUrl:
-                process.env.NEXT_PUBLIC_SIGNALING_SERVER_URL ||
-                "wss://signaling.betweenus.app",
-              sessionId: `global_listen_${Date.now()}`,
-              partnerIdentity: partner.partnerPublicIdentity,
-            },
-            {
-              onCallStateChange: () => {},
-            }
-          );
-        }
-
-        await callManagerRef.current.listenForIncomingCall((invitation) => {
-          if (isMounted) {
-            setPendingIncomingCall({
-              sessionId: invitation.sessionId,
-              callType: invitation.callType,
-              offerSdp: invitation.offerSdp || "",
-              partnerIdentity: invitation.callerIdentity,
-              timestamp: invitation.timestamp || Date.now(),
-            });
-            setIncomingCall(invitation);
+      if (!callManagerRef.current) {
+        callManagerRef.current = new AudioCallManager(
+          {
+            serverUrl:
+              process.env.NEXT_PUBLIC_SIGNALING_SERVER_URL ||
+              "wss://signaling.betweenus.app",
+            sessionId: `global_listen_${Date.now()}`,
+            partnerIdentity: partner.partnerPublicIdentity,
+          },
+          {
+            onCallStateChange: () => {},
           }
-        });
-      } catch (err) {
-        console.warn("Global incoming call listener notice:", err);
+        );
       }
-    }
 
-    initIncomingListener();
+      await callManagerRef.current.listenForIncomingCall((invitation) => {
+        setPendingIncomingCall({
+          sessionId: invitation.sessionId,
+          callType: invitation.callType,
+          offerSdp: invitation.offerSdp || "",
+          partnerIdentity: invitation.callerIdentity,
+          timestamp: invitation.timestamp || Date.now(),
+        });
+        setIncomingCall(invitation);
+
+        // Explicitly trigger audio ringtone & Web Notification
+        ringtoneManager.playIncomingRingtone();
+        triggerBrowserNotification(invitation, name);
+      });
+    } catch (err) {
+      console.warn("Global incoming call listener notice:", err);
+    }
+  }, [isCallPage, triggerBrowserNotification]);
+
+  useEffect(() => {
+    let isSubscribed = true;
+
+    setupListener();
+
+    // Auto-reconnect signaling listener when device wakes up or network recovers
+    const handleVisibilityOrOnline = () => {
+      if (document.visibilityState === "visible" && !isCallPage && isSubscribed) {
+        setupListener();
+      }
+    };
+
+    window.addEventListener("visibilitychange", handleVisibilityOrOnline);
+    window.addEventListener("online", handleVisibilityOrOnline);
 
     return () => {
-      isMounted = false;
+      isSubscribed = false;
+      window.removeEventListener("visibilitychange", handleVisibilityOrOnline);
+      window.removeEventListener("online", handleVisibilityOrOnline);
       if (callManagerRef.current) {
         callManagerRef.current.stopListener();
         callManagerRef.current = null;
       }
     };
-  }, [pathname]);
+  }, [isCallPage, setupListener]);
 
   const handleAccept = () => {
     if (!incomingCall) return;
+    ringtoneManager.stopAll();
     const callType = incomingCall.callType || "audio";
     const sessionId = incomingCall.sessionId;
     setIncomingCall(null);
 
-    // Stop background listener before navigating to call screen
     if (callManagerRef.current) {
       callManagerRef.current.stopListener();
       callManagerRef.current = null;
     }
 
-    // Route to appropriate call screen with auto-answer session parameters
     const targetRoute =
       callType === "video"
         ? `/call/video?sessionId=${sessionId}&autoAnswer=true`
@@ -104,6 +144,7 @@ export const GlobalIncomingCallHandler: React.FC = () => {
   };
 
   const handleDecline = () => {
+    ringtoneManager.stopAll();
     if (callManagerRef.current) {
       callManagerRef.current.declineCall();
       callManagerRef.current = null;
@@ -111,7 +152,7 @@ export const GlobalIncomingCallHandler: React.FC = () => {
     setIncomingCall(null);
   };
 
-  if (!incomingCall) return null;
+  if (!incomingCall || isCallPage) return null;
 
   return (
     <IncomingCallModal
@@ -122,4 +163,3 @@ export const GlobalIncomingCallHandler: React.FC = () => {
     />
   );
 };
-

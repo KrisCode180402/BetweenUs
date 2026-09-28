@@ -35,7 +35,7 @@ export const ActiveCallBanner: React.FC = () => {
   }, [callState]);
 
   // Don't render banner if user is currently on the call screen or no call is active
-  const isOnCallPage = pathname.startsWith("/call/");
+  const isOnCallPage = pathname.startsWith("/call/") || pathname === "/video" || pathname === "/audio";
   const isCallActive =
     activeSession !== null &&
     (callState === CallState.CONNECTED ||

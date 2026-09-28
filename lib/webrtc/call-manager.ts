@@ -347,6 +347,7 @@ export class AudioCallManager {
           };
           this.dispatchEvent(CallEvent.INCOMING_OFFER);
           this.startRingingTimeout();
+          ringtoneManager.playIncomingRingtone();
           onIncomingCallCallback(this.incomingInvitation);
         }
       },
