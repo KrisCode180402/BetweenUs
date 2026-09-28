@@ -156,12 +156,15 @@ export default function AudioCallPage() {
     }
   };
 
+  const [isFrontCamera, setIsFrontCamera] = useState(true);
+
   const handleSwitchCamera = async () => {
     if (callManagerRef.current) {
       const freshStream = await callManagerRef.current.switchCamera();
       if (freshStream) {
         setLocalStream(freshStream);
       }
+      setIsFrontCamera(callManagerRef.current.getFacingMode() === "user");
     }
   };
 
@@ -246,6 +249,7 @@ export default function AudioCallPage() {
       isMuted={isMuted}
       isVideoOff={isVideoOff}
       isScreenSharing={isScreenSharing}
+      isFrontCamera={isFrontCamera}
       screenShareNotice={screenShareError}
       onToggleMute={handleToggleMute}
       onToggleVideo={handleToggleVideo}

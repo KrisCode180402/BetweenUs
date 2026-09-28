@@ -19,6 +19,7 @@ interface CallScreenProps {
   isMuted?: boolean | undefined;
   isVideoOff?: boolean | undefined;
   isScreenSharing?: boolean | undefined;
+  isFrontCamera?: boolean | undefined;
   screenShareNotice?: string | null | undefined;
   onToggleMute?: (() => void) | undefined;
   onToggleVideo?: (() => void) | undefined;
@@ -38,6 +39,7 @@ export const CallScreen: React.FC<CallScreenProps> = ({
   isMuted = false,
   isVideoOff = type === "audio",
   isScreenSharing = false,
+  isFrontCamera = true,
   screenShareNotice,
   onToggleMute,
   onToggleVideo,
@@ -49,6 +51,7 @@ export const CallScreen: React.FC<CallScreenProps> = ({
   const [localMuted, setLocalMuted] = useState(isMuted);
   const [localCameraOff, setLocalCameraOff] = useState(isVideoOff);
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
+  const [isMirrorEnabled, setIsMirrorEnabled] = useState(true);
   const [showSafetyCheck, setShowSafetyCheck] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showBackConfirm, setShowBackConfirm] = useState(false);
@@ -134,6 +137,10 @@ export const CallScreen: React.FC<CallScreenProps> = ({
   const fullscreenStream = isStreamSwapped ? localStream : remoteStream;
   const pipStream = isStreamSwapped ? remoteStream : localStream;
   const isPipCameraOff = isStreamSwapped ? false : localCameraOff;
+
+  // Stream origin detection for natural video call mirroring
+  const isFullscreenLocal = fullscreenStream === localStream;
+  const isPipLocal = pipStream === localStream;
 
   // Fullscreen Video Stream Binding
   useEffect(() => {
@@ -296,7 +303,9 @@ export const CallScreen: React.FC<CallScreenProps> = ({
             ref={fullscreenVideoRef}
             autoPlay
             playsInline
-            className="w-full h-full object-cover"
+            className={`w-full h-full object-cover transition-transform duration-300 ${
+              isFullscreenLocal && isFrontCamera && isMirrorEnabled ? "-scale-x-1" : "scale-x-1"
+            }`}
           />
           {/* Fallback Artwork if active video stream is inactive or connecting */}
           {!fullscreenStream && (
@@ -458,7 +467,9 @@ export const CallScreen: React.FC<CallScreenProps> = ({
                   autoPlay
                   playsInline
                   muted={!isStreamSwapped}
-                  className="w-full h-full object-cover pointer-events-none"
+                  className={`w-full h-full object-cover pointer-events-none transition-transform duration-300 ${
+                    isPipLocal && isFrontCamera && isMirrorEnabled ? "-scale-x-1" : "scale-x-1"
+                  }`}
                 />
               ) : (
                 /* Camera Off Placeholder */
@@ -718,9 +729,11 @@ export const CallScreen: React.FC<CallScreenProps> = ({
         partnerName={partnerName}
         isSpeakerOn={isSpeakerOn}
         isScreenSharing={isScreenSharing}
+        isMirrorEnabled={isMirrorEnabled}
         onToggleSpeaker={handleToggleSpeaker}
         onToggleScreenShare={onToggleScreenShare}
         onSwitchCamera={onSwitchCamera}
+        onToggleMirror={() => setIsMirrorEnabled(!isMirrorEnabled)}
         onOpenSafetyVerification={() => setShowSafetyCheck(true)}
         onEndCall={onEndCall}
         connectionState={typeof callState === "string" ? callState : "Connected"}

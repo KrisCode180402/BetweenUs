@@ -45,6 +45,10 @@ export class PeerConnectionManager {
     return this.isCameraOff;
   }
 
+  public getFacingMode(): "user" | "environment" {
+    return this.currentFacingMode;
+  }
+
   /**
    * Alias for acquireMediaStream("audio") to maintain Phase 13 backwards compatibility.
    */

@@ -8,9 +8,11 @@ interface CallOptionsModalProps {
   partnerName: string;
   isSpeakerOn: boolean;
   isScreenSharing?: boolean | undefined;
+  isMirrorEnabled?: boolean | undefined;
   onToggleSpeaker: () => void;
   onToggleScreenShare?: (() => void) | undefined;
   onSwitchCamera?: (() => void) | undefined;
+  onToggleMirror?: (() => void) | undefined;
   onOpenSafetyVerification: () => void;
   onEndCall: () => void;
   iceState?: string | undefined;
@@ -23,9 +25,11 @@ export const CallOptionsModal: React.FC<CallOptionsModalProps> = ({
   partnerName,
   isSpeakerOn,
   isScreenSharing = false,
+  isMirrorEnabled = true,
   onToggleSpeaker,
   onToggleScreenShare,
   onSwitchCamera,
+  onToggleMirror,
   onOpenSafetyVerification,
   onEndCall,
   iceState = "connected",
@@ -124,6 +128,33 @@ export const CallOptionsModal: React.FC<CallOptionsModalProps> = ({
                 </div>
               </div>
               <span className="text-xs text-amber-400 font-semibold">FLIP</span>
+            </button>
+          )}
+
+          {/* Toggle Video Mirroring Option */}
+          {onToggleMirror && (
+            <button
+              type="button"
+              onClick={() => {
+                onToggleMirror();
+              }}
+              aria-label="Toggle camera video feed mirroring"
+              className="w-full p-3 rounded-2xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700/60 flex items-center justify-between text-slate-200 transition-all cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center">
+                  🪞
+                </div>
+                <div className="text-left">
+                  <p className="text-xs font-bold text-white">Mirror Video Feed</p>
+                  <p className="text-[11px] text-slate-400">
+                    {isMirrorEnabled ? "Selfie camera mirrored" : "Natural unmirrored view"}
+                  </p>
+                </div>
+              </div>
+              <span className={`text-xs font-semibold ${isMirrorEnabled ? "text-purple-400" : "text-slate-400"}`}>
+                {isMirrorEnabled ? "MIRRORED" : "NORMAL"}
+              </span>
             </button>
           )}
 

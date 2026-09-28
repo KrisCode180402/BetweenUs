@@ -95,6 +95,10 @@ export class AudioCallManager {
     return this.pcManager ? this.pcManager.getIsCameraOff() : false;
   }
 
+  public getFacingMode(): "user" | "environment" {
+    return this.pcManager ? this.pcManager.getFacingMode() : "user";
+  }
+
   public getIsScreenSharing(): boolean {
     return this.pcManager ? this.pcManager.getIsScreenSharing() : false;
   }
