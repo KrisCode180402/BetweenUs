@@ -55,34 +55,28 @@ export default function PairingPage() {
           fill
           priority
           sizes="100vw"
-          className="object-cover object-[center_18%] w-full h-full"
+          className="object-cover object-[center_12%] w-full h-full"
         />
         {/* Soft Ambient Overlay for Optimal Legibility while Keeping Sunset & Couple Crisp */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#040814]/40 via-transparent to-[#040814]/90" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#040814]/25 via-transparent to-[#040814]/90" />
       </div>
 
       {/* Main Mobile App Container (Constrained to fit viewport cleanly) */}
       <div className="relative w-full max-w-md mx-auto h-full flex flex-col justify-between pt-1 pb-3 z-10">
         
         {/* Top Header Row with Language Selector on Right */}
-        <div className="w-full flex items-center justify-between pt-0.5 px-1">
-          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-900/60 border border-slate-700/50 text-[10px] text-slate-300 font-mono backdrop-blur-md">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span>ENCRYPTED P2P</span>
-          </div>
+        <div className="w-full flex items-center justify-end pt-0.5 px-1">
           <LanguageSelector />
         </div>
 
-        {/* Branding & Subtitle (Twin Hearts + Title + Subtitle) */}
-        <div className="w-full my-0.5">
+        {/* Branding & Feature Group — Positioned over the lower heart glow as in 1 Pairing page.png */}
+        <div className="w-full flex flex-col items-center mt-7 sm:mt-10">
           <PairingHeader />
+          <FeatureBadges />
         </div>
 
-        {/* 3 Feature Badges: Voice Calls, Video Calls, Private & Secure */}
-        <FeatureBadges />
-
         {/* Flexible Middle Open Area — Displays Romantic Couple Sunset Artwork */}
-        <div className="w-full flex-1 min-h-[100px] sm:min-h-[160px] pointer-events-none" />
+        <div className="w-full flex-1 min-h-[60px] pointer-events-none" />
 
         {/* Primary Action Controls (Positioned at bottom over dark shoreline) */}
         <div className="w-full space-y-2 pt-1">

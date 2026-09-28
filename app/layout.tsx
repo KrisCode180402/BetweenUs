@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Outfit, Caveat } from "next/font/google";
+import { Outfit, Dancing_Script } from "next/font/google";
 import "./globals.css";
 import { SWRegister } from "@/components/between-us/SWRegister";
 import { ErrorBoundary } from "@/components/between-us/ErrorBoundary";
@@ -13,7 +13,7 @@ const outfit = Outfit({
   display: "swap",
 });
 
-const caveat = Caveat({
+const dancingScript = Dancing_Script({
   subsets: ["latin"],
   variable: "--font-script",
   weight: ["400", "600", "700"],
@@ -59,7 +59,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning className={`dark ${outfit.variable} ${caveat.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`dark ${outfit.variable} ${dancingScript.variable}`}>
       <body suppressHydrationWarning className="antialiased bg-[#060B14] text-gray-100 font-outfit selection:bg-teal-500 selection:text-white min-h-screen safe-area-inset">
         <ErrorBoundary>
           <main className="min-h-screen flex flex-col items-center justify-center">
