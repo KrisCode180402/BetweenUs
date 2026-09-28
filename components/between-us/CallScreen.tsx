@@ -51,7 +51,6 @@ export const CallScreen: React.FC<CallScreenProps> = ({
   const [localMuted, setLocalMuted] = useState(isMuted);
   const [localCameraOff, setLocalCameraOff] = useState(isVideoOff);
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
-  const [isMirrorEnabled, setIsMirrorEnabled] = useState(true);
   const [showSafetyCheck, setShowSafetyCheck] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showBackConfirm, setShowBackConfirm] = useState(false);
@@ -303,9 +302,8 @@ export const CallScreen: React.FC<CallScreenProps> = ({
             ref={fullscreenVideoRef}
             autoPlay
             playsInline
-            className={`w-full h-full object-cover transition-transform duration-300 ${
-              isFullscreenLocal && isFrontCamera && isMirrorEnabled ? "-scale-x-1" : "scale-x-1"
-            }`}
+            style={{ transform: isFullscreenLocal && isFrontCamera ? "scaleX(-1)" : "none" }}
+            className="w-full h-full object-cover"
           />
           {/* Fallback Artwork if active video stream is inactive or connecting */}
           {!fullscreenStream && (
@@ -467,9 +465,8 @@ export const CallScreen: React.FC<CallScreenProps> = ({
                   autoPlay
                   playsInline
                   muted={!isStreamSwapped}
-                  className={`w-full h-full object-cover pointer-events-none transition-transform duration-300 ${
-                    isPipLocal && isFrontCamera && isMirrorEnabled ? "-scale-x-1" : "scale-x-1"
-                  }`}
+                  style={{ transform: isPipLocal && isFrontCamera ? "scaleX(-1)" : "none" }}
+                  className="w-full h-full object-cover pointer-events-none"
                 />
               ) : (
                 /* Camera Off Placeholder */
@@ -729,11 +726,9 @@ export const CallScreen: React.FC<CallScreenProps> = ({
         partnerName={partnerName}
         isSpeakerOn={isSpeakerOn}
         isScreenSharing={isScreenSharing}
-        isMirrorEnabled={isMirrorEnabled}
         onToggleSpeaker={handleToggleSpeaker}
         onToggleScreenShare={onToggleScreenShare}
         onSwitchCamera={onSwitchCamera}
-        onToggleMirror={() => setIsMirrorEnabled(!isMirrorEnabled)}
         onOpenSafetyVerification={() => setShowSafetyCheck(true)}
         onEndCall={onEndCall}
         connectionState={typeof callState === "string" ? callState : "Connected"}
