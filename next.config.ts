@@ -4,12 +4,12 @@ const isProd = process.env.NODE_ENV === "production";
 
 // Strict Content Security Policy with PWA manifest & worker permissions
 const cspHeader = `
-  default-src 'self';
+  default-src 'none';
   script-src 'self' 'unsafe-inline' 'unsafe-eval';
   style-src 'self' 'unsafe-inline';
   img-src 'self' data: blob:;
   media-src 'self' blob:;
-  connect-src 'self' wss: https: http: ws:;
+  connect-src 'self' wss://signaling.betweenus.app https://turn.betweenus.app wss: https: http: ws:;
   font-src 'self' data:;
   manifest-src 'self';
   worker-src 'self' blob:;

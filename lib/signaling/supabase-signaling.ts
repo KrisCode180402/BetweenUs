@@ -39,6 +39,9 @@ export class SupabaseSignalingClient {
   private channel: RealtimeChannel | null = null;
   private channelName: string = "";
   private isSubscribed = false;
+  private processedMessageIds = new Set<string>();
+  private readonly MAX_TIMESTAMP_DRIFT_MS = 2 * 60 * 1000;
+  private readonly MAX_PAYLOAD_BYTES = 64 * 1024;
 
   constructor(
     private coupleId: string,
@@ -46,6 +49,55 @@ export class SupabaseSignalingClient {
     private events: SupabaseSignalingEvents = {}
   ) {
     this.channelName = `between-us-call:${coupleId || "default-couple"}`;
+  }
+
+  /**
+   * Validates signaling message schema, size, sender identity, and replay freshness.
+   */
+  private validatePayload(payload: any): payload is SupabaseSignalingPayload {
+    if (!payload || typeof payload !== "object") return false;
+    if (payload.senderId === this.localUserId) return false;
+
+    // 1. Session & Sender ID Validation
+    if (typeof payload.sessionId !== "string" || payload.sessionId.length === 0 || payload.sessionId.length > 128) {
+      return false;
+    }
+    if (typeof payload.senderId !== "string" || payload.senderId.length === 0 || payload.senderId.length > 128) {
+      return false;
+    }
+
+    // 2. Replay Protection: Timestamp freshness check
+    const now = Date.now();
+    if (typeof payload.timestamp === "number") {
+      if (Math.abs(now - payload.timestamp) > this.MAX_TIMESTAMP_DRIFT_MS) {
+        console.warn("Signaling notice: Stale or replayed message rejected.");
+        return false;
+      }
+    }
+
+    // 3. Deduplication Protection
+    const candidateStr = payload.candidate ? (payload.candidate.candidate || "") : "";
+    const msgId = `${payload.sessionId}:${payload.senderId}:${payload.timestamp || 0}:${payload.sdp ? payload.sdp.length : 0}:${candidateStr}`;
+    if (this.processedMessageIds.has(msgId)) {
+      return false;
+    }
+    this.processedMessageIds.add(msgId);
+    if (this.processedMessageIds.size > 200) {
+      const firstKey = this.processedMessageIds.keys().next().value;
+      if (firstKey) this.processedMessageIds.delete(firstKey);
+    }
+
+    // 4. Payload Size Enforcement
+    try {
+      if (JSON.stringify(payload).length > this.MAX_PAYLOAD_BYTES) {
+        console.warn("Signaling notice: Oversized payload rejected.");
+        return false;
+      }
+    } catch {
+      return false;
+    }
+
+    return true;
   }
 
   /**
@@ -64,48 +116,49 @@ export class SupabaseSignalingClient {
     this.channel = supabase.channel(this.channelName, {
       config: {
         broadcast: { self: false, ack: true },
+        private: true,
       },
     });
 
-    // Listen for broadcast events
+    // Listen for broadcast events with strict payload authorization validation
     this.channel
       .on("broadcast", { event: "call_invite" }, ({ payload }) => {
-        if (payload?.senderId !== this.localUserId) {
+        if (this.validatePayload(payload)) {
           this.events.onCallInvite?.(payload);
         }
       })
       .on("broadcast", { event: "call_accept" }, ({ payload }) => {
-        if (payload?.senderId !== this.localUserId) {
+        if (this.validatePayload(payload)) {
           this.events.onCallAccept?.(payload);
         }
       })
       .on("broadcast", { event: "call_decline" }, ({ payload }) => {
-        if (payload?.senderId !== this.localUserId) {
+        if (this.validatePayload(payload)) {
           this.events.onCallDecline?.(payload);
         }
       })
       .on("broadcast", { event: "call_cancel" }, ({ payload }) => {
-        if (payload?.senderId !== this.localUserId) {
+        if (this.validatePayload(payload)) {
           this.events.onCallCancel?.(payload);
         }
       })
       .on("broadcast", { event: "sdp_offer" }, ({ payload }) => {
-        if (payload?.senderId !== this.localUserId) {
+        if (this.validatePayload(payload)) {
           this.events.onSdpOffer?.(payload);
         }
       })
       .on("broadcast", { event: "sdp_answer" }, ({ payload }) => {
-        if (payload?.senderId !== this.localUserId) {
+        if (this.validatePayload(payload)) {
           this.events.onSdpAnswer?.(payload);
         }
       })
       .on("broadcast", { event: "ice_candidate" }, ({ payload }) => {
-        if (payload?.senderId !== this.localUserId) {
+        if (this.validatePayload(payload)) {
           this.events.onIceCandidate?.(payload);
         }
       })
       .on("broadcast", { event: "call_end" }, ({ payload }) => {
-        if (payload?.senderId !== this.localUserId) {
+        if (this.validatePayload(payload)) {
           this.events.onCallEnd?.(payload);
         }
       });

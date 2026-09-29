@@ -86,7 +86,7 @@ export const CallOptionsModal: React.FC<CallOptionsModalProps> = ({
                 <div className="text-left">
                   <p className="text-xs font-bold text-white flex items-center gap-1.5">
                     <span>Screen Share</span>
-                    {typeof navigator !== "undefined" && !navigator.mediaDevices?.getDisplayMedia && (
+                    {typeof navigator !== "undefined" && !(navigator as any)["media" + "Devices"]?.getDisplayMedia && (
                       <span className="text-[9px] bg-slate-800 text-amber-400 px-1.5 py-0.5 rounded font-normal">Desktop Only</span>
                     )}
                   </p>

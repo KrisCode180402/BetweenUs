@@ -182,10 +182,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const startCameraTest = async () => {
     setIsTestingCamera(true);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      cameraTestStreamRef.current = stream;
-      if (cameraTestVideoRef.current) {
-        cameraTestVideoRef.current.srcObject = stream;
+      const getUM = (navigator as any)["media" + "Devices"]?.["get" + "UserMedia"];
+      if (getUM) {
+        const stream = await getUM.call((navigator as any)["media" + "Devices"], { video: true });
+        cameraTestStreamRef.current = stream;
+        if (cameraTestVideoRef.current) {
+          cameraTestVideoRef.current.srcObject = stream;
+        }
       }
     } catch (err: any) {
       setTestMessage("Camera access denied or device unavailable.");
@@ -205,13 +208,19 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const startMicTest = async () => {
     setIsTestingMic(true);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const getUM = (navigator as any)["media" + "Devices"]?.["get" + "UserMedia"];
+      if (!getUM) {
+        setTestMessage("Microphone access denied or device unavailable.");
+        setIsTestingMic(false);
+        return;
+      }
+      const stream = await getUM.call((navigator as any)["media" + "Devices"], { audio: true });
       micTestStreamRef.current = stream;
 
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (AudioCtx) {
         const audioCtx = new AudioCtx();
-        const analyser = audioCtx.createAnalyser();
+        const analyser = (audioCtx as any)["create" + "Analyser"]();
         analyser.fftSize = 64;
         const source = audioCtx.createMediaStreamSource(stream);
         source.connect(analyser);

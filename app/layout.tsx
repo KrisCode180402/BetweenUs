@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   title: "Between Us — Two People. One Private Connection.",
   description: "Private communication for just the two of us.",
   applicationName: "Between Us",
-  manifest: "/manifest.webmanifest",
+  manifest: "/manifest.json",
   authors: [{ name: "Between Us Team" }],
   referrer: "no-referrer",
   robots: "noindex, nofollow",

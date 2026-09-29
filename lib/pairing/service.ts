@@ -87,6 +87,7 @@ export class PairingSessionManager {
   private activeTransport: PairingTransport | null = null;
   private expirationTimer: ReturnType<typeof setTimeout> | null = null;
   private failedAttemptsCount = 0;
+  private lockoutUntil: number | null = null;
   private localIdentity: DevicePublicIdentity | null = null;
 
   private clearExpirationTimer(): void {
@@ -112,6 +113,9 @@ export class PairingSessionManager {
   private failSession(reason: string, targetState: PairingState = PairingState.FAILED): void {
     if (targetState === PairingState.FAILED || targetState === PairingState.EXPIRED) {
       this.failedAttemptsCount++;
+      if (this.failedAttemptsCount >= MAXIMUM_FAILED_ATTEMPTS) {
+        this.lockoutUntil = Date.now() + 15 * 60 * 1000; // 15 minutes lockout window
+      }
     }
     this.clearExpirationTimer();
     this.activeSession.errorReason = reason;
@@ -145,9 +149,20 @@ export class PairingSessionManager {
     this.activeSession.challengeB = null;
     this.activeSession.tokenHex = null;
 
-    if (this.failedAttemptsCount >= MAXIMUM_FAILED_ATTEMPTS) {
-      this.activeSession.errorReason = "Maximum pairing failure attempts exceeded.";
+    if (this.isLockedOut()) {
+      this.activeSession.errorReason = "Maximum pairing failure attempts exceeded. Rate limited for 15 minutes.";
     }
+  }
+
+  private isLockedOut(): boolean {
+    if (this.lockoutUntil && Date.now() < this.lockoutUntil) {
+      return true;
+    }
+    if (this.lockoutUntil && Date.now() >= this.lockoutUntil) {
+      this.lockoutUntil = null;
+      this.failedAttemptsCount = 0;
+    }
+    return this.failedAttemptsCount >= MAXIMUM_FAILED_ATTEMPTS;
   }
 
   public getSessionState(): Readonly<PairingSessionState> {
@@ -157,8 +172,8 @@ export class PairingSessionManager {
   public async createPairingInvitation(
     transport: PairingTransport
   ): Promise<{ invitation: PairingInvitationMessage; displayCode: string }> {
-    if (this.failedAttemptsCount >= MAXIMUM_FAILED_ATTEMPTS) {
-      throw new Error("Maximum failed pairing attempts exceeded. Reset required.");
+    if (this.isLockedOut()) {
+      throw new Error("Maximum failed pairing attempts exceeded. Rate limited for 15 minutes.");
     }
 
     const myIdentity = await initializeDeviceIdentity();
@@ -214,8 +229,8 @@ export class PairingSessionManager {
     invitation: PairingInvitationMessage,
     overrideResponderRecord?: { identity: DevicePublicIdentity; privateKey: CryptoKey }
   ): Promise<void> {
-    if (this.failedAttemptsCount >= MAXIMUM_FAILED_ATTEMPTS) {
-      throw new Error("Maximum failed pairing attempts exceeded. Reset required.");
+    if (this.isLockedOut()) {
+      throw new Error("Maximum failed pairing attempts exceeded. Rate limited for 15 minutes.");
     }
 
     if (

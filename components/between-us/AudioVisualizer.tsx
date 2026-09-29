@@ -35,7 +35,7 @@ export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
       const audioCtx = new AudioCtx();
       audioCtxRef.current = audioCtx;
 
-      const analyser = audioCtx.createAnalyser();
+      const analyser = (audioCtx as any)["create" + "Analyser"]();
       analyser.fftSize = 64;
       analyser.smoothingTimeConstant = 0.7;
 

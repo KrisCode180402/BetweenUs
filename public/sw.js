@@ -5,7 +5,7 @@
  * Privacy-First: Never caches WebRTC signaling, SDP, ICE, tokens, or media streams.
  */
 
-const CACHE_NAME = 'between-us-v1';
+const CACHE_NAME = 'between-us-static-v1';
 
 const STATIC_ASSETS = [
   '/',
