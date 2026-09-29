@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 
 interface HomeHeaderProps {
   onOpenSettings: () => void;
@@ -10,6 +10,17 @@ interface HomeHeaderProps {
 export const HomeHeader: React.FC<HomeHeaderProps> = ({
   onOpenSettings,
 }) => {
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleReloadApp = () => {
+    setIsRefreshing(true);
+    setTimeout(() => {
+      if (typeof window !== "undefined") {
+        window.location.reload();
+      }
+    }, 200);
+  };
+
   return (
     <header className="w-full flex items-center justify-between pt-1 pb-2 px-1 select-none">
       {/* Settings Button (Top Left) */}
@@ -49,8 +60,28 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
         </p>
       </div>
 
-      {/* Balance Spacer (Top Right) */}
-      <div className="w-10 h-10 pointer-events-none" />
+      {/* Reload PWA App Button (Top Right) */}
+      <button
+        type="button"
+        onClick={handleReloadApp}
+        aria-label="Reload application"
+        title="Reload application"
+        className="w-10 h-10 rounded-full bg-slate-900/60 hover:bg-slate-800/80 border border-white/15 backdrop-blur-md flex items-center justify-center text-slate-200 hover:text-white transition-all cursor-pointer shadow-lg active:scale-95"
+      >
+        <svg
+          className={`w-5 h-5 transition-transform duration-700 ${isRefreshing ? "animate-spin text-teal-400" : ""}`}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2.2}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
+          />
+        </svg>
+      </button>
     </header>
   );
 };
