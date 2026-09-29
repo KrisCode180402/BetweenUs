@@ -140,12 +140,14 @@ export const CallScreen: React.FC<CallScreenProps> = ({
   const isPipLocal = pipStream === localStream;
 
   // Camera & Stream Orientation Rules:
-  // 1. REMOTE VIDEO (remoteStream): MUST NEVER be mirrored (transform: "none").
-  //    Ensures remote front & rear cameras and screen shares display in true physical orientation (readable text).
+  // 1. REMOTE VIDEO (remoteStream): ALWAYS transform: "none" (unmirrored).
+  //    - Front Camera Remote: Device B sees Device A in true physical orientation (unmirrored).
+  //    - Rear Camera Remote: Device B sees text on Device A's rear camera rendered left-to-right (HELLO).
+  //    - Screen Sharing Remote: Device B sees text rendered left-to-right (unmirrored).
   // 2. LOCAL PREVIEW (localStream):
   //    - Screen Sharing: transform: "none"
   //    - Rear/Back Camera (isFrontCamera === false): transform: "none" (readable text on local preview)
-  //    - Front Selfie Camera (isFrontCamera === true): transform: "scaleX(-1)" (natural selfie mirror)
+  //    - Front Selfie Camera (isFrontCamera === true): transform: "scaleX(-1)" (natural selfie mirror for user)
 
   const getStreamTransform = (isLocal: boolean) => {
     if (!isLocal) return "none";

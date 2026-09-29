@@ -43,11 +43,8 @@ export default function AudioCallPage() {
           state === CallState.TIMED_OUT ||
           state === CallState.FAILED
         ) {
-          try {
-            router.replace("/home");
-          } catch {}
           if (typeof window !== "undefined") {
-            window.location.replace("/home");
+            window.location.href = "/home";
           }
         }
       },
@@ -160,11 +157,8 @@ export default function AudioCallPage() {
         state === CallState.TIMED_OUT ||
         state === CallState.FAILED
       ) {
-        try {
-          router.replace("/home");
-        } catch {}
         if (typeof window !== "undefined") {
-          window.location.replace("/home");
+          window.location.href = "/home";
         }
       }
     });
@@ -172,21 +166,29 @@ export default function AudioCallPage() {
       isMounted = false;
       unsubscribe();
     };
-  }, [router]);
+  }, []);
 
   // Mobile Swipe Back / Hardware Back Navigation Protection
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    window.history.pushState(null, "", window.location.href);
+    const state = callManagerRef.current?.getState();
+    if (
+      state === CallState.CONNECTED ||
+      state === CallState.CONNECTING ||
+      state === CallState.RECONNECTING ||
+      state === CallState.OUTGOING_RINGING
+    ) {
+      window.history.pushState(null, "", window.location.href);
+    }
 
     const handlePopState = (_e: PopStateEvent) => {
-      const state = callManagerRef.current?.getState();
+      const currentState = callManagerRef.current?.getState();
       if (
-        state === CallState.CONNECTED ||
-        state === CallState.CONNECTING ||
-        state === CallState.RECONNECTING ||
-        state === CallState.OUTGOING_RINGING
+        currentState === CallState.CONNECTED ||
+        currentState === CallState.CONNECTING ||
+        currentState === CallState.RECONNECTING ||
+        currentState === CallState.OUTGOING_RINGING
       ) {
         window.history.pushState(null, "", window.location.href);
         setShowLeaveConfirm(true);
@@ -205,11 +207,8 @@ export default function AudioCallPage() {
     }
     setLocalStream(null);
     setRemoteStream(null);
-    try {
-      router.replace("/home");
-    } catch {}
     if (typeof window !== "undefined") {
-      window.location.replace("/home");
+      window.location.href = "/home";
     }
   };
 

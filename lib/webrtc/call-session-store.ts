@@ -26,8 +26,18 @@ class CallSessionStore {
 
   public clearActiveSession(): void {
     if (this.activeManager) {
+      const lastSession = this.activeManager;
       this.activeManager = null;
-      this.notifyListeners();
+      const lastState = lastSession.getState();
+      const terminalState =
+        lastState === CallState.IDLE ? CallState.ENDED : lastState;
+      this.listeners.forEach((listener) => {
+        try {
+          listener(lastSession, terminalState);
+        } catch (err) {
+          console.warn("CallSessionStore listener error:", err);
+        }
+      });
     }
   }
 

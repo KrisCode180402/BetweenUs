@@ -194,15 +194,17 @@ export class AudioCallManager {
         this.clearRingingTimeout();
         ringtoneManager.stopAll();
       },
-      onCallDecline: () => {
+      onCallDecline: (payload) => {
+        if (payload?.sessionId && payload.sessionId !== this.options.sessionId) return;
         this.clearAllTimers();
         ringtoneManager.stopAll();
-        this.endCall();
+        this.endCall(false);
       },
-      onCallCancel: () => {
+      onCallCancel: (payload) => {
+        if (payload?.sessionId && payload.sessionId !== this.options.sessionId) return;
         this.clearAllTimers();
         ringtoneManager.stopAll();
-        this.endCall();
+        this.endCall(false);
       },
       onSdpOffer: async (payload) => {
         if (payload.sessionId && payload.sessionId !== this.options.sessionId) return;
@@ -237,8 +239,9 @@ export class AudioCallManager {
           }
         }
       },
-      onCallEnd: () => {
-        this.endCall();
+      onCallEnd: (payload) => {
+        if (payload?.sessionId && payload.sessionId !== this.options.sessionId) return;
+        this.endCall(false);
       },
       onError: (err) => {
         if (this.stateMachine.getState() !== CallState.IDLE) {
@@ -387,12 +390,14 @@ export class AudioCallManager {
           }
         }
       },
-      onCallCancel: () => {
+      onCallCancel: (payload) => {
+        if (payload?.sessionId && payload.sessionId !== this.options.sessionId) return;
         this.clearAllTimers();
-        this.endCall();
+        this.endCall(false);
       },
-      onCallEnd: () => {
-        this.endCall();
+      onCallEnd: (payload) => {
+        if (payload?.sessionId && payload.sessionId !== this.options.sessionId) return;
+        this.endCall(false);
       },
       onError: (err) => {
         if (this.stateMachine.getState() !== CallState.IDLE) {
@@ -681,14 +686,19 @@ export class AudioCallManager {
     }
   }
 
-  public async endCall(): Promise<void> {
+  public async endCall(notifyRemote: boolean = true): Promise<void> {
     const state = this.stateMachine.getState();
     if (state === CallState.ENDED) return;
 
-    if (this.supabaseSignaling) {
+    if (notifyRemote && this.supabaseSignaling) {
       try {
-        await this.supabaseSignaling.sendCallEnd(this.options.sessionId);
-      } catch {}
+        await Promise.race([
+          this.supabaseSignaling.sendCallEnd(this.options.sessionId),
+          new Promise((resolve) => setTimeout(resolve, 500)),
+        ]);
+      } catch (err) {
+        console.warn("Notice sending call_end signal:", err);
+      }
     }
 
     if (this.stateMachine.canTransitionTo(CallState.ENDING)) {
