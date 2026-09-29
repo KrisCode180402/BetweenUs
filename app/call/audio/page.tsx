@@ -81,6 +81,7 @@ export default function AudioCallPage() {
         },
         {}
       );
+      callSessionStore.setActiveSession(callManagerRef.current);
     }
     attachEventsToManager(callManagerRef.current);
     return callManagerRef.current;
@@ -101,17 +102,18 @@ export default function AudioCallPage() {
           partner.partnerPublicIdentity?.fingerprint?.substring(0, 6) ||
           "Partner";
         setPartnerName(name);
-        setIsInitializing(false);
 
         // Check if global active call session already exists (e.g. user minimized and returned)
         const activeSession = callSessionStore.getActiveSession();
         if (activeSession && activeSession.getCallType() === "audio") {
           callManagerRef.current = activeSession;
           attachEventsToManager(activeSession);
+          setIsInitializing(false);
           return;
         }
 
         const manager = initializeCallManager(partner.partnerPublicIdentity);
+        setIsInitializing(false);
 
         const searchParams = new URLSearchParams(window.location.search);
         const isAutoAnswer = searchParams.get("autoAnswer") === "true";
@@ -144,15 +146,14 @@ export default function AudioCallPage() {
   // Global Call Session Store listener: Immediately returns home if call session terminates
   useEffect(() => {
     let isMounted = true;
-    const unsubscribe = callSessionStore.subscribe((session, state) => {
+    const unsubscribe = callSessionStore.subscribe((_session, state) => {
       if (!isMounted) return;
       if (
         state === CallState.ENDED ||
         state === CallState.CANCELLED ||
         state === CallState.REJECTED ||
         state === CallState.TIMED_OUT ||
-        state === CallState.FAILED ||
-        (state === CallState.IDLE && !session && !isInitializing)
+        state === CallState.FAILED
       ) {
         router.replace("/home");
       }
@@ -161,7 +162,7 @@ export default function AudioCallPage() {
       isMounted = false;
       unsubscribe();
     };
-  }, [isInitializing, router]);
+  }, [router]);
 
   // Mobile Swipe Back / Hardware Back Navigation Protection
   useEffect(() => {
