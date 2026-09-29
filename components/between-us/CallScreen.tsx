@@ -39,6 +39,7 @@ export const CallScreen: React.FC<CallScreenProps> = ({
   isMuted = false,
   isVideoOff = type === "audio",
   isScreenSharing = false,
+  isFrontCamera = true,
   screenShareNotice,
   onToggleMute,
   onToggleVideo,
@@ -138,11 +139,23 @@ export const CallScreen: React.FC<CallScreenProps> = ({
   const isFullscreenLocal = fullscreenStream === localStream;
   const isPipLocal = pipStream === localStream;
 
-  const isFullscreenScreenShare = !isFullscreenLocal && isScreenSharing;
-  const isPipScreenShare = !isPipLocal && isScreenSharing;
+  // Camera & Stream Orientation Rules:
+  // 1. REMOTE VIDEO (remoteStream): MUST NEVER be mirrored (transform: "none").
+  //    Ensures remote front & rear cameras and screen shares display in true physical orientation (readable text).
+  // 2. LOCAL PREVIEW (localStream):
+  //    - Screen Sharing: transform: "none"
+  //    - Rear/Back Camera (isFrontCamera === false): transform: "none" (readable text on local preview)
+  //    - Front Selfie Camera (isFrontCamera === true): transform: "scaleX(-1)" (natural selfie mirror)
 
-  const fullscreenTransform = isFullscreenScreenShare ? "none" : "scaleX(-1)";
-  const pipTransform = isPipScreenShare ? "none" : "scaleX(-1)";
+  const getStreamTransform = (isLocal: boolean) => {
+    if (!isLocal) return "none";
+    if (isScreenSharing) return "none";
+    if (!isFrontCamera) return "none";
+    return "scaleX(-1)";
+  };
+
+  const fullscreenTransform = getStreamTransform(isFullscreenLocal);
+  const pipTransform = getStreamTransform(isPipLocal);
 
   // Fullscreen Video Stream Binding
   useEffect(() => {
