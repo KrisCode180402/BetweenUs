@@ -40,7 +40,7 @@ export class SupabaseSignalingClient {
   private channelName: string = "";
   private isSubscribed = false;
   private processedMessageIds = new Set<string>();
-  private readonly MAX_TIMESTAMP_DRIFT_MS = 2 * 60 * 1000;
+  private readonly MAX_TIMESTAMP_DRIFT_MS = 10 * 60 * 1000;
   private readonly MAX_PAYLOAD_BYTES = 64 * 1024;
 
   constructor(
@@ -116,7 +116,6 @@ export class SupabaseSignalingClient {
     this.channel = supabase.channel(this.channelName, {
       config: {
         broadcast: { self: false, ack: true },
-        private: true,
       },
     });
 
