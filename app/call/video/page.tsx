@@ -44,7 +44,12 @@ export default function VideoCallPage() {
           state === CallState.TIMED_OUT ||
           state === CallState.FAILED
         ) {
-          router.replace("/home");
+          try {
+            router.replace("/home");
+          } catch {}
+          if (typeof window !== "undefined") {
+            window.location.replace("/home");
+          }
         }
       },
       onLocalStream: (stream: MediaStream) => setLocalStream(stream),
@@ -157,7 +162,12 @@ export default function VideoCallPage() {
         state === CallState.TIMED_OUT ||
         state === CallState.FAILED
       ) {
-        router.replace("/home");
+        try {
+          router.replace("/home");
+        } catch {}
+        if (typeof window !== "undefined") {
+          window.location.replace("/home");
+        }
       }
     });
     return () => {
@@ -197,7 +207,12 @@ export default function VideoCallPage() {
     }
     setLocalStream(null);
     setRemoteStream(null);
-    router.replace("/home");
+    try {
+      router.replace("/home");
+    } catch {}
+    if (typeof window !== "undefined") {
+      window.location.replace("/home");
+    }
   };
 
   const handleMinimizeCall = () => {
