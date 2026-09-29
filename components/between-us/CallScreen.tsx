@@ -138,6 +138,12 @@ export const CallScreen: React.FC<CallScreenProps> = ({
   const isFullscreenLocal = fullscreenStream === localStream;
   const isPipLocal = pipStream === localStream;
 
+  const isFullscreenScreenShare = !isFullscreenLocal && isScreenSharing;
+  const isPipScreenShare = !isPipLocal && isScreenSharing;
+
+  const fullscreenTransform = isFullscreenScreenShare ? "none" : "scaleX(-1)";
+  const pipTransform = isPipScreenShare ? "none" : "scaleX(-1)";
+
   // Fullscreen Video Stream Binding
   useEffect(() => {
     if (fullscreenVideoRef.current && fullscreenStream && type === "video") {
@@ -299,7 +305,7 @@ export const CallScreen: React.FC<CallScreenProps> = ({
             ref={fullscreenVideoRef}
             autoPlay
             playsInline
-            style={{ transform: isFullscreenLocal ? "scaleX(-1)" : "none" }}
+            style={{ transform: fullscreenTransform }}
             className="w-full h-full object-cover"
           />
           {/* Fallback Artwork if active video stream is inactive or connecting */}
@@ -464,7 +470,7 @@ export const CallScreen: React.FC<CallScreenProps> = ({
                   autoPlay
                   playsInline
                   muted={!isStreamSwapped}
-                  style={{ transform: isPipLocal ? "scaleX(-1)" : "none" }}
+                  style={{ transform: pipTransform }}
                   className="w-full h-full object-cover pointer-events-none"
                 />
               ) : (

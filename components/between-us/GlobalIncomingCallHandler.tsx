@@ -4,7 +4,8 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { IncomingCallModal } from "./IncomingCallModal";
 import { AudioCallManager, setPendingIncomingCall } from "@/lib/webrtc/call-manager";
-import { IncomingCallInvitation } from "@/lib/webrtc/types";
+import { IncomingCallInvitation, CallState } from "@/lib/webrtc/types";
+import { callSessionStore } from "@/lib/webrtc/call-session-store";
 import { loadPairedPartner } from "@/lib/pairing/partner-store";
 import { initializeDeviceIdentity } from "@/lib/crypto/identity";
 import { ringtoneManager } from "@/lib/sound/ringtone";
@@ -73,7 +74,18 @@ export const GlobalIncomingCallHandler: React.FC = () => {
             partnerIdentity: partner.partnerPublicIdentity,
           },
           {
-            onCallStateChange: () => {},
+            onCallStateChange: (state: CallState) => {
+              if (
+                state === CallState.ENDED ||
+                state === CallState.CANCELLED ||
+                state === CallState.REJECTED ||
+                state === CallState.TIMED_OUT ||
+                state === CallState.FAILED
+              ) {
+                setIncomingCall(null);
+                ringtoneManager.stopAll();
+              }
+            },
           }
         );
       }
@@ -96,6 +108,23 @@ export const GlobalIncomingCallHandler: React.FC = () => {
       console.warn("Global incoming call listener notice:", err);
     }
   }, [isCallPage, triggerBrowserNotification]);
+
+  // Subscribe to callSessionStore to clear incoming call modal if caller cancels/ends call
+  useEffect(() => {
+    const unsubscribe = callSessionStore.subscribe((_session, state) => {
+      if (
+        state === CallState.ENDED ||
+        state === CallState.CANCELLED ||
+        state === CallState.REJECTED ||
+        state === CallState.TIMED_OUT ||
+        state === CallState.FAILED
+      ) {
+        setIncomingCall(null);
+        ringtoneManager.stopAll();
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     let isSubscribed = true;

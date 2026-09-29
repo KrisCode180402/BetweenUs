@@ -182,10 +182,18 @@ export class SupabaseSignalingClient {
 
   public async sendCallDecline(sessionId: string, reason?: string): Promise<void> {
     await this.send("call_decline", { sessionId, ...(reason ? { reason } : {}) });
+    try {
+      await new Promise((r) => setTimeout(r, 40));
+      await this.send("call_decline", { sessionId, ...(reason ? { reason } : {}) });
+    } catch {}
   }
 
   public async sendCallCancel(sessionId: string): Promise<void> {
     await this.send("call_cancel", { sessionId });
+    try {
+      await new Promise((r) => setTimeout(r, 40));
+      await this.send("call_cancel", { sessionId });
+    } catch {}
   }
 
   public async sendSdpOffer(sessionId: string, sdp: string, callType: CallType): Promise<void> {
@@ -202,6 +210,10 @@ export class SupabaseSignalingClient {
 
   public async sendCallEnd(sessionId: string, reason?: string): Promise<void> {
     await this.send("call_end", { sessionId, ...(reason ? { reason } : {}) });
+    try {
+      await new Promise((r) => setTimeout(r, 40));
+      await this.send("call_end", { sessionId, ...(reason ? { reason } : {}) });
+    } catch {}
   }
 
   /**

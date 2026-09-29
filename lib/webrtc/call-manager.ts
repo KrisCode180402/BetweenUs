@@ -673,7 +673,7 @@ export class AudioCallManager {
 
   public async endCall(): Promise<void> {
     const state = this.stateMachine.getState();
-    if (state === CallState.IDLE || state === CallState.ENDED) return;
+    if (state === CallState.ENDED) return;
 
     if (this.supabaseSignaling) {
       try {

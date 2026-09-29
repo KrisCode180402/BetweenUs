@@ -19,6 +19,9 @@ const ALLOWED_CALL_TRANSITIONS: Record<CallState, CallState[]> = {
     CallState.CALLING,
     CallState.RINGING,
     CallState.FAILED,
+    CallState.ENDING,
+    CallState.ENDED,
+    CallState.CANCELLED,
   ],
   [CallState.OUTGOING_INITIATING]: [
     CallState.OUTGOING_RINGING,
