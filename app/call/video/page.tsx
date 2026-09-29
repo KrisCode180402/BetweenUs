@@ -191,9 +191,9 @@ export default function VideoCallPage() {
     };
   }, []);
 
-  const handleEndCall = () => {
+  const handleEndCall = async () => {
     if (callManagerRef.current) {
-      callManagerRef.current.endCall();
+      await callManagerRef.current.endCall();
     }
     setLocalStream(null);
     setRemoteStream(null);

@@ -60,10 +60,10 @@ export const ActiveCallBanner: React.FC = () => {
     router.push(route);
   };
 
-  const handleEndCall = (e: React.MouseEvent) => {
+  const handleEndCall = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (activeSession) {
-      activeSession.endCall();
+      await activeSession.endCall();
     }
   };
 

@@ -189,9 +189,9 @@ export default function AudioCallPage() {
     };
   }, []);
 
-  const handleEndCall = () => {
+  const handleEndCall = async () => {
     if (callManagerRef.current) {
-      callManagerRef.current.endCall();
+      await callManagerRef.current.endCall();
     }
     setLocalStream(null);
     setRemoteStream(null);

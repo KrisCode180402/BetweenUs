@@ -143,10 +143,10 @@ export const GlobalIncomingCallHandler: React.FC = () => {
     router.push(targetRoute);
   };
 
-  const handleDecline = () => {
+  const handleDecline = async () => {
     ringtoneManager.stopAll();
     if (callManagerRef.current) {
-      callManagerRef.current.declineCall();
+      await callManagerRef.current.declineCall();
       callManagerRef.current = null;
     }
     setIncomingCall(null);

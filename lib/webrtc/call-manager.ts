@@ -514,9 +514,11 @@ export class AudioCallManager {
   /**
    * Declines incoming call.
    */
-  public declineCall(): void {
+  public async declineCall(): Promise<void> {
     if (this.supabaseSignaling) {
-      this.supabaseSignaling.sendCallDecline(this.options.sessionId).catch(() => {});
+      try {
+        await this.supabaseSignaling.sendCallDecline(this.options.sessionId);
+      } catch {}
     }
     if (
       this.stateMachine.getState() === CallState.INCOMING_RINGING ||
@@ -530,9 +532,11 @@ export class AudioCallManager {
   /**
    * Cancels an outgoing call before acceptance.
    */
-  public cancelCall(): void {
+  public async cancelCall(): Promise<void> {
     if (this.supabaseSignaling) {
-      this.supabaseSignaling.sendCallCancel(this.options.sessionId).catch(() => {});
+      try {
+        await this.supabaseSignaling.sendCallCancel(this.options.sessionId);
+      } catch {}
     }
     const currentState = this.stateMachine.getState();
     if (
@@ -670,12 +674,14 @@ export class AudioCallManager {
     }
   }
 
-  public endCall(): void {
+  public async endCall(): Promise<void> {
     const state = this.stateMachine.getState();
     if (state === CallState.IDLE || state === CallState.ENDED) return;
 
     if (this.supabaseSignaling) {
-      this.supabaseSignaling.sendCallEnd(this.options.sessionId).catch(() => {});
+      try {
+        await this.supabaseSignaling.sendCallEnd(this.options.sessionId);
+      } catch {}
     }
 
     if (this.stateMachine.canTransitionTo(CallState.ENDING)) {
