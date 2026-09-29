@@ -151,7 +151,16 @@ export class AudioCallManager {
       pairedPartner?.partnerPublicIdentity?.fingerprint ||
       this.options.partnerIdentity?.fingerprint;
 
-    if (myFingerprint && partnerFingerprint && myFingerprint !== "local-user") {
+    const storedCoupleId = (pairedPartner as any)?.coupleId;
+    if (storedCoupleId) {
+      this.coupleId = storedCoupleId;
+    } else if (
+      myFingerprint &&
+      partnerFingerprint &&
+      myFingerprint !== "local-user" &&
+      partnerFingerprint !== "partner_device_fingerprint" &&
+      partnerFingerprint !== "initiator_partner_device"
+    ) {
       this.coupleId = [myFingerprint, partnerFingerprint].sort().join("_");
     } else if (pairedPartner) {
       this.coupleId = (pairedPartner as any).coupleId || pairedPartner.id || "partner_trust";
