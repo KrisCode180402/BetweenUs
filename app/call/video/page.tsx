@@ -41,9 +41,10 @@ export default function VideoCallPage() {
           state === CallState.ENDED ||
           state === CallState.CANCELLED ||
           state === CallState.REJECTED ||
-          state === CallState.TIMED_OUT
+          state === CallState.TIMED_OUT ||
+          state === CallState.FAILED
         ) {
-          setTimeout(() => router.push("/home"), 1000);
+          router.replace("/home");
         }
       },
       onLocalStream: (stream: MediaStream) => setLocalStream(stream),
@@ -139,9 +140,30 @@ export default function VideoCallPage() {
 
     startVideoCallSession();
 
-    // DO NOT end call on component unmount! Session lives independently in callSessionStore.
     return () => {};
   }, [attachEventsToManager, initializeCallManager, router]);
+
+  // Global Call Session Store listener: Immediately returns home if call session terminates
+  useEffect(() => {
+    let isMounted = true;
+    const unsubscribe = callSessionStore.subscribe((session, state) => {
+      if (!isMounted) return;
+      if (
+        state === CallState.ENDED ||
+        state === CallState.CANCELLED ||
+        state === CallState.REJECTED ||
+        state === CallState.TIMED_OUT ||
+        state === CallState.FAILED ||
+        (state === CallState.IDLE && !session && !isInitializing)
+      ) {
+        router.replace("/home");
+      }
+    });
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, [isInitializing, router]);
 
   // Mobile Swipe Back / Hardware Back Navigation Protection
   useEffect(() => {
@@ -174,7 +196,7 @@ export default function VideoCallPage() {
     }
     setLocalStream(null);
     setRemoteStream(null);
-    router.push("/home");
+    router.replace("/home");
   };
 
   const handleMinimizeCall = () => {
