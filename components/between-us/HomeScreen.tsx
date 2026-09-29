@@ -68,7 +68,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     if (onInitiateAudioCall) {
       onInitiateAudioCall();
     } else {
-      router.push("/audio");
+      router.push("/call/audio");
     }
   };
 
@@ -76,7 +76,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     if (onInitiateVideoCall) {
       onInitiateVideoCall();
     } else {
-      router.push("/video");
+      router.push("/call/video");
     }
   };
 
