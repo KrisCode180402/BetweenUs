@@ -45,7 +45,7 @@ export class SupabaseSignalingClient {
     private localUserId: string,
     private events: SupabaseSignalingEvents = {}
   ) {
-    this.channelName = `private:call:${coupleId || "between-us-default-couple"}`;
+    this.channelName = `between-us-call:${coupleId || "default-couple"}`;
   }
 
   /**
@@ -123,7 +123,7 @@ export class SupabaseSignalingClient {
           resolve();
         } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
           clearTimeout(timer);
-          this.isSubscribed = true;
+          this.isSubscribed = false;
           const errMsg = err?.message || `Realtime signaling channel status: ${status}`;
           console.warn("Realtime signaling connection notice:", errMsg);
           resolve();

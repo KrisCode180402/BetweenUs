@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     const result = await sendIncomingCallPushNotification(targetDeviceId, payload);
 
     if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: 400 });
+      return NextResponse.json({ success: false, message: result.error }, { status: 200 });
     }
 
     return NextResponse.json({ success: true, message: 'Incoming call push dispatched successfully' });

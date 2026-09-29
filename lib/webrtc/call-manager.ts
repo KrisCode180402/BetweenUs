@@ -306,9 +306,10 @@ export class AudioCallManager {
       }
 
       // Trigger Web Push notification if partner device is backgrounded
-      if (pairedPartner && (pairedPartner as any).id) {
+      const partnerDeviceId = pairedPartner?.partnerPublicIdentity?.fingerprint;
+      if (partnerDeviceId) {
         pushManager.sendIncomingCallPush(
-          (pairedPartner as any).id,
+          partnerDeviceId,
           this.options.sessionId,
           callType,
           this.options.partnerIdentity?.fingerprint || "Partner"
