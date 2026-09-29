@@ -331,7 +331,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
           {/* Title & Subtitle */}
           <div className="text-center flex flex-col items-center">
-            <h1 className="font-script text-3.5xl sm:text-4.5xl font-normal text-white tracking-wide drop-shadow-[0_0_15px_rgba(255,255,255,0.6)] flex items-center justify-center gap-1">
+            <h1 className="font-script text-[32px] sm:text-[40px] leading-tight font-normal text-white tracking-wide drop-shadow-[0_0_18px_rgba(255,255,255,0.7)] flex items-center justify-center gap-1">
               Between Us <span className="text-rose-400 text-2xl sm:text-3xl leading-none">💕</span>
             </h1>
             <p className="text-xs font-semibold text-slate-300 tracking-wide mt-0.5">

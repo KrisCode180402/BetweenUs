@@ -4,7 +4,7 @@ import React from "react";
 
 export const PairingHeader: React.FC = () => {
   return (
-    <div className="w-full flex flex-col items-center text-center space-y-1 select-none z-10 pt-16 sm:pt-20">
+    <div className="w-full flex flex-col items-center text-center space-y-1 select-none z-10 pt-2 sm:pt-4">
       {/* Main Title: Between Us ♡ */}
       <div className="flex items-center justify-center gap-2">
         <h1 className="font-script text-5xl sm:text-6xl text-white tracking-wide drop-shadow-[0_0_28px_rgba(255,255,255,0.95)] leading-none">
