@@ -185,14 +185,12 @@ export class AudioCallManager {
         this.clearRingingTimeout();
         ringtoneManager.stopAll();
       },
-      onCallDecline: (payload) => {
-        if (payload.sessionId && payload.sessionId !== this.options.sessionId) return;
+      onCallDecline: () => {
         this.clearAllTimers();
         ringtoneManager.stopAll();
         this.endCall();
       },
-      onCallCancel: (payload) => {
-        if (payload.sessionId && payload.sessionId !== this.options.sessionId) return;
+      onCallCancel: () => {
         this.clearAllTimers();
         ringtoneManager.stopAll();
         this.endCall();
@@ -230,8 +228,7 @@ export class AudioCallManager {
           }
         }
       },
-      onCallEnd: (payload) => {
-        if (payload.sessionId && payload.sessionId !== this.options.sessionId) return;
+      onCallEnd: () => {
         this.endCall();
       },
       onError: (err) => {
