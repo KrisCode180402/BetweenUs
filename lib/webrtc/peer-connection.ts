@@ -212,6 +212,35 @@ export class PeerConnectionManager {
   }
 
   /**
+   * Applies adaptive bitrate encodings to video and audio senders for low-bandwidth networks.
+   */
+  public async applyAdaptiveNetworkParameters(): Promise<void> {
+    if (!this.pc) return;
+
+    try {
+      const senders = this.pc.getSenders();
+      for (const sender of senders) {
+        if (!sender.track) continue;
+        const params = sender.getParameters();
+        const encoding = params.encodings[0] as any;
+        if (encoding) {
+          if (sender.track.kind === "audio") {
+            encoding.networkPriority = "high";
+            encoding.maxBitrate = 64000;
+          } else if (sender.track.kind === "video") {
+            encoding.networkPriority = "high";
+            encoding.maxBitrate = 1200000;
+            (params as any).degradationPreference = "maintain-framerate";
+          }
+        }
+        await sender.setParameters(params);
+      }
+    } catch (err) {
+      console.warn("Adaptive network parameter tuning notice:", err);
+    }
+  }
+
+  /**
    * Generates SDP Offer (Caller flow).
    */
   public async createOffer(callType: CallType = "audio"): Promise<string> {
@@ -223,7 +252,10 @@ export class PeerConnectionManager {
     };
 
     const offer = await this.pc.createOffer(offerOptions);
-    await this.pc.setLocalDescription(offer);
+    const optimizedSdp = optimizeSdpForLowBandwidth(offer.sdp || "");
+    await this.pc.setLocalDescription({ type: "offer", sdp: optimizedSdp });
+
+    await this.applyAdaptiveNetworkParameters();
 
     if (!this.pc.localDescription?.sdp) {
       throw new Error("Failed to generate valid local SDP offer description.");
@@ -245,7 +277,10 @@ export class PeerConnectionManager {
     };
 
     const offer = await this.pc.createOffer(offerOptions);
-    await this.pc.setLocalDescription(offer);
+    const optimizedSdp = optimizeSdpForLowBandwidth(offer.sdp || "");
+    await this.pc.setLocalDescription({ type: "offer", sdp: optimizedSdp });
+
+    await this.applyAdaptiveNetworkParameters();
 
     if (!this.pc.localDescription?.sdp) {
       throw new Error("Failed to generate ICE restart SDP offer description.");
@@ -263,7 +298,10 @@ export class PeerConnectionManager {
     await this.setRemoteOffer(remoteOfferSdp);
 
     const answer = await this.pc.createAnswer();
-    await this.pc.setLocalDescription(answer);
+    const optimizedSdp = optimizeSdpForLowBandwidth(answer.sdp || "");
+    await this.pc.setLocalDescription({ type: "answer", sdp: optimizedSdp });
+
+    await this.applyAdaptiveNetworkParameters();
 
     if (!this.pc.localDescription?.sdp) {
       throw new Error("Failed to generate valid local SDP answer description.");
@@ -597,5 +635,26 @@ export class PeerConnectionManager {
     this.isMuted = false;
     this.isCameraOff = false;
   }
+}
+
+/**
+ * Modifies SDP string to prefer Opus codec with Forward Error Correction (FEC) and optimal bitrate parameters for low-bandwidth networks.
+ */
+export function optimizeSdpForLowBandwidth(sdp: string): string {
+  if (!sdp) return sdp;
+
+  if (sdp.includes("opus") && !sdp.includes("useinbandfec=1")) {
+    return sdp.replace(/a=fmtp:(\d+) (.*opus.*)/gi, (_match, pt, params) => {
+      let updated = params;
+      if (!updated.includes("useinbandfec=")) {
+        updated += ";useinbandfec=1";
+      }
+      if (!updated.includes("maxaveragebitrate=")) {
+        updated += ";maxaveragebitrate=64000";
+      }
+      return `a=fmtp:${pt} ${updated}`;
+    });
+  }
+  return sdp;
 }
 

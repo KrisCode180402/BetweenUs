@@ -50,13 +50,20 @@ export class SupabaseSignalingClient {
 
   /**
    * Initializes and subscribes to the ephemeral Supabase Realtime channel for this couple.
+   * Auto-heals closed or errored channels.
    */
   public async subscribe(): Promise<void> {
-    if (this.channel && this.isSubscribed) return;
+    if (this.channel && this.isSubscribed) {
+      const state = (this.channel as any).state;
+      if (state === "joined" || state === "joining") {
+        return;
+      }
+      await this.unsubscribe();
+    }
 
     this.channel = supabase.channel(this.channelName, {
       config: {
-        broadcast: { self: false },
+        broadcast: { self: false, ack: true },
       },
     });
 
@@ -107,7 +114,7 @@ export class SupabaseSignalingClient {
       const timer = setTimeout(() => {
         this.isSubscribed = true;
         resolve();
-      }, 3500);
+      }, 3000);
 
       this.channel?.subscribe((status, err) => {
         if (status === "SUBSCRIBED") {
@@ -116,8 +123,8 @@ export class SupabaseSignalingClient {
           resolve();
         } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
           clearTimeout(timer);
+          this.isSubscribed = true;
           const errMsg = err?.message || `Realtime signaling channel status: ${status}`;
-          this.isSubscribed = true; // Fallback optimistic subscription
           console.warn("Realtime signaling connection notice:", errMsg);
           resolve();
         }
@@ -126,13 +133,9 @@ export class SupabaseSignalingClient {
   }
 
   /**
-   * Broadcasts a signaling message over the active Supabase channel.
+   * Broadcasts a signaling message over the active Supabase channel with automatic retry.
    */
   public async send(event: SupabaseSignalingEvent, payload: Partial<SupabaseSignalingPayload>): Promise<void> {
-    if (!this.channel || !this.isSubscribed) {
-      await this.subscribe();
-    }
-
     const fullPayload: SupabaseSignalingPayload = {
       sessionId: payload.sessionId || "",
       senderId: this.localUserId,
@@ -140,14 +143,28 @@ export class SupabaseSignalingClient {
       ...payload,
     };
 
-    const res = await this.channel?.send({
+    if (!this.channel || !this.isSubscribed || (this.channel as any).state !== "joined") {
+      await this.subscribe();
+    }
+
+    let res = await this.channel?.send({
       type: "broadcast",
       event,
       payload: fullPayload,
     });
 
     if (res !== "ok") {
-      throw new Error(`Failed to send signaling message '${event}' via Supabase Realtime.`);
+      // Re-subscribe and retry once on transient channel failure
+      await this.unsubscribe();
+      await this.subscribe();
+      res = await this.channel?.send({
+        type: "broadcast",
+        event,
+        payload: fullPayload,
+      });
+      if (res !== "ok") {
+        console.warn(`Signaling broadcast message '${event}' send notice: ${res}`);
+      }
     }
   }
 

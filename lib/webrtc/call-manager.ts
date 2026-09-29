@@ -180,21 +180,25 @@ export class AudioCallManager {
           ringtoneManager.playIncomingRingtone();
         }
       },
-      onCallAccept: (_payload) => {
+      onCallAccept: (payload) => {
+        if (payload.sessionId && payload.sessionId !== this.options.sessionId) return;
         this.clearRingingTimeout();
         ringtoneManager.stopAll();
       },
-      onCallDecline: (_payload) => {
+      onCallDecline: (payload) => {
+        if (payload.sessionId && payload.sessionId !== this.options.sessionId) return;
         this.clearAllTimers();
         ringtoneManager.stopAll();
         this.endCall();
       },
-      onCallCancel: (_payload) => {
+      onCallCancel: (payload) => {
+        if (payload.sessionId && payload.sessionId !== this.options.sessionId) return;
         this.clearAllTimers();
         ringtoneManager.stopAll();
         this.endCall();
       },
       onSdpOffer: async (payload) => {
+        if (payload.sessionId && payload.sessionId !== this.options.sessionId) return;
         if (payload.sdp) {
           this.bufferedSdpOffer = payload.sdp;
           if (this.incomingInvitation) {
@@ -206,11 +210,13 @@ export class AudioCallManager {
         }
       },
       onSdpAnswer: async (payload) => {
+        if (payload.sessionId && payload.sessionId !== this.options.sessionId) return;
         if (payload.sdp && this.pcManager) {
           await this.handleRemoteAnswer(payload.sdp);
         }
       },
       onIceCandidate: async (payload) => {
+        if (payload.sessionId && payload.sessionId !== this.options.sessionId) return;
         if (payload.candidate) {
           const candidateInit = {
             candidate: payload.candidate.candidate || "",
@@ -224,7 +230,8 @@ export class AudioCallManager {
           }
         }
       },
-      onCallEnd: () => {
+      onCallEnd: (payload) => {
+        if (payload.sessionId && payload.sessionId !== this.options.sessionId) return;
         this.endCall();
       },
       onError: (err) => {
