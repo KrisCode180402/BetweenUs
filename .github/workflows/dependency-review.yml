@@ -1,0 +1,24 @@
+name: Dependency Review
+
+on:
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-review:
+    name: Inspect PR Dependency Changes
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Run Dependency Review Action
+        uses: actions/dependency-review-action@5a5eaabe274a2f8d38ef8bfcf0cf1cb2fb03248c # v4.5.0
+        with:
+          fail-on-severity: high

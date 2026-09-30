@@ -1,0 +1,62 @@
+name: Dedicated Security Audit & Verification Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  security-audit:
+    name: Execute Security Pipeline Gates
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4.2.2 # 11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js Engine
+        uses: actions/setup-node@v4.1.0 # 39370e3970a6d050c38046917d8e3780d128491b
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Deterministic Dependency Installation
+        run: npm ci
+
+      - name: Run Secret-Safe Repo Check
+        run: |
+          if git ls-files | grep -i "\.env\.local"; then
+            echo "ERROR: Local secret file tracked in git repository!"
+            exit 1
+          fi
+
+      - name: Run TypeScript Type Check
+        run: npm run type-check
+
+      - name: Run ESLint Verification
+        run: npm run lint
+
+      - name: Run Automated Security Test Suite
+        run: npm test
+
+      - name: Run Dependency Vulnerability Audit
+        run: npm audit --audit-level=high
+
+      - name: Build Production Application Bundle
+        run: npm run build
+
+      - name: Verify Bundle Secret Exposure
+        run: |
+          if grep -rn "NEXT_PUBLIC_TURN_SHARED_SECRET" .next/; then
+            echo "CRITICAL SECURITY ERROR: TURN Shared Secret leaked in build bundle!"
+            exit 1
+          fi

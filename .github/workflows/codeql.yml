@@ -19,12 +19,14 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3.28.0
+        uses: github/codeql-action/init@df7a5f271701ed570d2422584614673c9614d8d2 # v3.28.0
         with:
           languages: javascript-typescript
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3.28.0
+        uses: github/codeql-action/analyze@df7a5f271701ed570d2422584614673c9614d8d2 # v3.28.0

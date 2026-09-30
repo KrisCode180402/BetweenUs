@@ -16,12 +16,12 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v4.2.2 # 11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
 
       - name: Setup Node.js Engine
-        uses: actions/setup-node@v4.1.0
+        uses: actions/setup-node@v4.1.0 # 39370e3970a6d050c38046917d8e3780d128491b
         with:
           node-version: '20'
           cache: 'npm'

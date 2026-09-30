@@ -6,18 +6,29 @@
 # Cryptographic Identity & Signing Primitives
 /lib/crypto/        @KrisCode180402
 
-# Ephemeral Signaling Architecture
+# Ephemeral Signaling Architecture & Server
 /lib/signaling/     @KrisCode180402
 /server/signaling/  @KrisCode180402
 
-# WebRTC PeerConnection Engine & Teardown
+# WebRTC PeerConnection Engine & Session Lifecycle
 /lib/webrtc/        @KrisCode180402
+/lib/session/       @KrisCode180402
 
-# Privacy Mode & Zero Retention Managers
-/lib/privacy/       @KrisCode180402
-
-# Safety Fingerprint Verification
+# Pairing & Trust Verification
+/lib/pairing/       @KrisCode180402
 /lib/safety/        @KrisCode180402
+
+# Privacy Mode & Storage Isolation
+/lib/privacy/       @KrisCode180402
+/lib/storage/       @KrisCode180402
+/lib/security/      @KrisCode180402
+/lib/supabase/      @KrisCode180402
+/lib/turn/          @KrisCode180402
+
+# Next.js Security Configuration & Dependencies
+/next.config.*      @KrisCode180402
+/package.json       @KrisCode180402
+/package-lock.json  @KrisCode180402
 
 # Infrastructure & CI/CD Pipelines
 /.github/           @KrisCode180402
