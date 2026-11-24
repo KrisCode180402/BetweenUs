@@ -10,11 +10,10 @@ Complete every required manual check below before switching `KrisCode180402/Betw
   - Keep current commit history (after rotating/isolating the Supabase project and verifying no private data remains), **or**
   - Rewrite Git history (e.g., with `git-filter-repo`) to scrub historical `lib/supabase/client.ts` values, `Images/`, `Sound/`, `BETWEEN US.txt`, and personal commit author email (`KrishanKumar940097@gmail.com`) before pushing to a public repo.
 - [ ] **GitHub Branch Cleanup**: Review the 10 remote branches visible on GitHub (`KrisCode180402/BetweenUs`) and delete obsolete development branches before going public.
-- [ ] **Untracked Local Folder**: Move the untracked local `Between Us idea/` folder outside the repository working directory so it is never accidentally committed.
+- [x] **Untracked Local Folder**: Moved untracked `Between Us idea/` outside the repository directory (`x:\Personal Projects\Between Us idea`).
 
 ## 2. Dependency Vulnerabilities
-- [ ] Review `npm audit --audit-level=high` output (currently reports `next`, `postcss`, `sharp`, `source-map-js`, and `brace-expansion` advisories — see [`BETWEEN_US_PUBLIC_RELEASE_READINESS_REPORT.md`](./BETWEEN_US_PUBLIC_RELEASE_READINESS_REPORT.md)).
-- [ ] Plan a targeted `next` / transitive dependency security update PR and re-verify `npm run build` and `npm test` so the CI `npm audit --audit-level=high` gate passes on GitHub Actions.
+- [x] Resolved all 11 `npm audit` advisories (`next` upgraded to `15.5.29`, `postcss` overridden to `^8.5.28`, `minimatch@3 > brace-expansion` overridden to `^1.1.22`); `npm audit --audit-level=high` now reports **0 vulnerabilities** and all checks (`type-check`, `lint`, 133 tests, `build`) pass.
 
 ## 3. Licensing & Asset Rights
 - [ ] Review [`LICENSE_OPTIONS.md`](./LICENSE_OPTIONS.md), select a license (or confirm All Rights Reserved), add `LICENSE` if applicable, and update `README.md`.

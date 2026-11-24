@@ -240,7 +240,7 @@ See full per-file audit in [`ASSET_CLEANUP_REPORT.md`](./ASSET_CLEANUP_REPORT.md
 - **Current tracked tree (`release/public-release-prep`)**: **CLEAN** — removed hardcoded `"Kris"` / `"Jona"` defaults, broken `/images/user_avatar_kris.png` and `/images/partner_avatar_jona.png` paths, and `file:///x:/Between%20Us/...` local filesystem paths.
 - **Visual inspection of runtime illustrations**: Verified `public/images/background.png` and `public/images/background-person.png` are stylized digital illustrations containing zero real personal photographs or identifiable faces.
 - **Git Commit Author Metadata**: All 68 historical commits contain the author email `KrishanKumar940097@gmail.com` in Git commit metadata. Consider whether to keep or rewrite commit author metadata to your GitHub `users.noreply.github.com` email before making the repository public.
-- **Untracked local folder**: `Between Us idea/` remains untracked on disk; relocate it outside the repository folder before running any future `git add` or publishing.
+- **Untracked local folder**: `Between Us idea/` was moved outside the repository to `x:\Personal Projects\Between Us idea` (working tree is completely clean).
 
 ---
 
@@ -259,7 +259,7 @@ Reviewed all 4 workflows in `.github/workflows/`:
 - `codeql.yml`: `contents: read`, `security-events: write`, SHA-pinned actions.
 - `dependency-review.yml`: `contents: read`, SHA-pinned actions, `fail-on-severity: high` on PRs.
 - No `pull_request_target`, no hardcoded secrets, no untrusted PR execution with production credentials.
-- **Note**: Both `ci.yml` and `security.yml` run `npm audit --audit-level=high`, which will currently fail on GitHub Actions until the upstream `next`/transitive advisories (Section 25) are patched.
+- **Note**: Both `ci.yml` and `security.yml` run `npm audit --audit-level=high`, which now passes with **0 vulnerabilities**.
 
 ---
 
@@ -277,27 +277,20 @@ Reviewed all 4 workflows in `.github/workflows/`:
 
 ## 23. Test Result
 
-`npm test` (`tsx --test tests/**/*.test.ts`): **PASS** (exit code `0`, **133 / 133 tests passed**, 0 failed, 0 skipped across 20 test suites in ~2.2s).
+`npm test` (`tsx --test tests/**/*.test.ts`): **PASS** (exit code `0`, **133 / 133 tests passed**, 0 failed, 0 skipped across 20 test suites in ~2.4s).
 
 ---
 
 ## 24. Production Build Result
 
-`npm run build` (`next build`): **PASS** (exit code `0`, compiled in 13.4s, all 27 routes generated cleanly including `/`, `/home`, `/pairing`, `/call/audio`, `/call/video`, `/audio`, `/video`, `/connection-error`, `/error`, `/settings/*`, `/pwa-debug`, `/manifest.webmanifest`, and all 5 `/api/*` endpoints).
+`npm run build` (`next build`): **PASS** (exit code `0`, `Next.js 15.5.29`, compiled in 10.8s, all 27 routes generated cleanly including `/`, `/home`, `/pairing`, `/call/audio`, `/call/video`, `/audio`, `/video`, `/connection-error`, `/error`, `/settings/*`, `/pwa-debug`, `/manifest.webmanifest`, and all 5 `/api/*` endpoints).
 
 ---
 
 ## 25. `npm audit` Result
 
-`npm audit --audit-level=high`: **FAIL (exit code `1`)** — **11 vulnerabilities** (`6 moderate`, `4 high`, `1 critical`):
-- `next` (`<=16.3.0-preview.10`): **Critical** (cache poisoning, Image Optimization SVG RCE, Server Actions DoS, Edge response header issues; transitive `postcss` high advisories)
-- `postcss` (`<=8.5.22`, under `next`): **High**
-- `sharp` (`<0.35.5`): **High** (`librsvg` CVE-2026-96889)
-- `source-map-js` (`1.0.0 - 1.2.1`): **High**
-- `brace-expansion` (`<=1.1.20 || 4.0.0 - 5.0.11`): **High**
-- `minimatch` / `@typescript-eslint/*`: **Moderate**
-
-Per instructions, `npm audit fix --force` was **not** run automatically. Upgrading `next` and resolving these advisories in a dedicated dependency update PR is strongly recommended before going public (and required for the CI `npm audit --audit-level=high` step to pass).
+`npm audit --audit-level=high`: **PASS (exit code `0`)** — **0 vulnerabilities** (`0 low, 0 moderate, 0 high, 0 critical`).
+- Resolved via `npm audit fix` (`next@15.5.29`, patched `sharp`, `source-map-js`, `@typescript-eslint/*`) plus scoped npm `overrides` in `package.json` (`postcss: "$postcss"` at `^8.5.28`, `minimatch@3 > brace-expansion: ^1.1.22`) without introducing breaking major framework upgrades.
 
 ---
 
@@ -311,11 +304,10 @@ Per instructions, `npm audit fix --force` was **not** run automatically. Upgradi
 
 ## 27. Remaining Technical Risks
 
-1. **Upstream `next` & transitive dependency vulnerabilities** (1 critical, 4 high) failing `npm audit --audit-level=high`.
-2. **Historical Supabase URL & `anon` key** in commits `1afc2a1` / `2a30c1e` / `19c6b13` / `256cea8` — risk depends on your Supabase RLS policy strength.
-3. **Unauthenticated `/api/push/*` endpoints & volatile in-memory push store** (`lib/push/push-store.ts`).
-4. **Supabase pairing & Realtime broadcast lack live ECDSA cryptographic verification** (Safety Verification cannot yet bind dual SPKI keys for Supabase-paired devices).
-5. **10 existing remote branches on GitHub** (visible on the repository page) may still contain older development code, reference images, or hardcoded values.
+1. **Historical Supabase URL & `anon` key** in commits `1afc2a1` / `2a30c1e` / `19c6b13` / `256cea8` — risk depends on your Supabase RLS policy strength.
+2. **Unauthenticated `/api/push/*` endpoints & volatile in-memory push store** (`lib/push/push-store.ts`).
+3. **Supabase pairing & Realtime broadcast lack live ECDSA cryptographic verification** (Safety Verification cannot yet bind dual SPKI keys for Supabase-paired devices).
+4. **10 existing remote branches on GitHub** (visible on the repository page) may still contain older development code, reference images, or hardcoded values.
 
 ---
 
@@ -323,26 +315,24 @@ Per instructions, `npm audit fix --force` was **not** run automatically. Upgradi
 
 1. **Audit / Rotate Supabase Project**: Verify strict RLS on all 4 tables in your Supabase project, or create a separate Supabase project for your personal deployment and rotate/retire the historically referenced project.
 2. **Decide on Git History Cleanup**:
-   - *Option A (Fast)*: Rotate/isolate the Supabase project and accept existing commit history (note: personal email `KrishanKumar940097@gmail.com` and historical `Images/` blobs remain in history).
-   - *Option B (Cleanest for Public Portfolio)*: Create a fresh history or run `git-filter-repo` (only with your explicit approval) to scrub historical `Images/`, `Sound/`, `BETWEEN US.txt`, `lib/supabase/client.ts` hardcoded values, and rewrite author email to your GitHub noreply email, then delete the 9 obsolete remote branches on GitHub.
-3. **Resolve `npm audit` Advisories**: Run a controlled Next.js & transitive security update (`npm audit fix` / Next.js patch upgrade) and re-run `npm test && npm run build` so CI passes green on `main`.
-4. **Select a License**: Review [`docs/release/LICENSE_OPTIONS.md`](./LICENSE_OPTIONS.md), add a `LICENSE` file if choosing an OSS license, and update `README.md`.
-5. **Confirm Asset Licenses**: Verify redistribution rights for `public/sounds/*.mp3` and `public/images/*.png`.
-6. **Move Untracked Local Folder**: Move `Between Us idea/` outside `x:\Personal Projects\Between Us`.
-7. **Configure GitHub Security Settings**: Enable Private Vulnerability Reporting, Secret Scanning, Push Protection, Dependabot, and `main` branch protection; review the 15 GitHub "Security and quality" alerts visible in your GitHub tab and delete stale remote branches.
-8. **Review & Merge**: Inspect `git diff main..release/public-release-prep`, merge into `main`, push, and only then switch repository visibility from Private to Public.
+   - *Option A (Keep History)*: Rotate/isolate the Supabase project and accept existing commit history (note: personal email `KrishanKumar940097@gmail.com` and historical `Images/` blobs remain in history).
+   - *Option B (Clean Public History)*: Create a clean squashed public history (with owner approval) scrubbing historical `Images/`, `Sound/`, `BETWEEN US.txt`, `lib/supabase/client.ts` hardcoded values, and personal email, then delete the 9 obsolete remote branches on GitHub.
+3. **Select a License**: Review [`docs/release/LICENSE_OPTIONS.md`](./LICENSE_OPTIONS.md), add a `LICENSE` file if choosing an OSS license, and update `README.md`.
+4. **Confirm Asset Licenses**: Verify redistribution rights for `public/sounds/*.mp3` and `public/images/*.png`.
+5. **Configure GitHub Security Settings**: Enable Private Vulnerability Reporting, Secret Scanning, Push Protection, Dependabot, and `main` branch protection; review the 15 GitHub "Security and quality" alerts visible in your GitHub tab and delete stale remote branches.
+6. **Review & Merge**: Inspect `git diff main..release/public-release-prep`, merge into `main`, push, and only then switch repository visibility from Private to Public.
 
 ---
 
 ## 29. Public Release Readiness
 
-**Status: CONDITIONAL GO (Cleaned & Validated Locally — Manual Security/Governance Gate Required Before Making Public)**
+**Status: READY FOR OWNER SIGN-OFF & PUSH (All Automated Gates Passing — 0 Audit Vulnerabilities)**
 
-- **Working tree (`release/public-release-prep`)**: Clean, organized, professionally documented, free of live secrets/PII/clutter, and passing TypeScript, ESLint (0 warnings), 133/133 automated tests, and Next.js production build.
-- **Hold items before flipping GitHub visibility to Public**:
-  1. Address historical Supabase project exposure (RLS audit / key rotation / project isolation) and decide on Git history & stale remote branch cleanup.
-  2. Patch the 1 critical + 4 high `npm audit` advisories (primarily `next`) so CI passes cleanly.
-  3. Confirm license choice (`LICENSE_OPTIONS.md`) and audio/image redistribution rights.
+- **Working tree (`release/public-release-prep`)**: Clean, organized, professionally documented, free of live secrets/PII/clutter, and passing TypeScript, ESLint (0 warnings), 133/133 automated tests, Next.js production build, and `npm audit --audit-level=high` (0 vulnerabilities).
+- **Remaining owner decisions before switching visibility to Public**:
+  1. License choice (`LICENSE_OPTIONS.md`) and asset redistribution confirmation.
+  2. Git history preference (keep history vs. clean fresh public history) and remote branch cleanup.
+  3. Supabase RLS verification / project rotation and GitHub dashboard security toggles.
 
 ---
 
