@@ -62,7 +62,7 @@ export default function AudioCallPage() {
         }
       },
     };
-  }, [router]);
+  }, []);
 
   const initializeCallManager = useCallback((partnerIdentity: any) => {
     if (!callManagerRef.current) {

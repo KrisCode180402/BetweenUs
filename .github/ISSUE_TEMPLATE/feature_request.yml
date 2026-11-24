@@ -1,0 +1,31 @@
+name: Feature Request
+description: Propose a focused improvement aligned with private 1-to-1 calling
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Between Us is intentionally focused on private 1-to-1 audio and video calling (no social feeds, group calls, call recording, or analytics).
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: What problem or limitation does this proposal solve?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed Solution
+      description: Describe the behavior, UI flow, or technical approach you have in mind.
+    validations:
+      required: true
+
+  - type: textarea
+    id: privacy
+    attributes:
+      label: Privacy & Security Considerations
+      description: Does this introduce new browser permissions, network calls, storage keys, or third-party dependencies?

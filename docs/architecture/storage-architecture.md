@@ -2,7 +2,7 @@
 
 **Tagline**: Two People. One Private Connection.  
 **System Phase**: Phase 03 — Privacy & Data Classification  
-**Status**: Approved Specification (Cross-Referenced to [`docs/privacy/storage-policy.md`](file:///x:/Between%20Us/docs/privacy/storage-policy.md))  
+**Status**: Approved Specification (Cross-Referenced to [`docs/privacy/storage-policy.md`](../privacy/storage-policy.md))  
 
 ---
 
@@ -27,7 +27,7 @@
 
 ## 2. Device Storage vs. Server Storage Allocation
 
-For full details, see [`docs/privacy/storage-policy.md`](file:///x:/Between%20Us/docs/privacy/storage-policy.md).
+For full details, see [`docs/privacy/storage-policy.md`](../privacy/storage-policy.md).
 
 ### 2.1 Server Storage Specification (ZERO PERSISTENCE)
 * **Application Database**: **NONE**.

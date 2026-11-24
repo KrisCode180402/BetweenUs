@@ -18,8 +18,8 @@ interface PartnerStatusCardProps {
 export const PartnerStatusCard: React.FC<PartnerStatusCardProps> = ({
   myDeviceName,
   partnerName,
-  myAvatarUrl = "/images/user_avatar_kris.png",
-  partnerAvatarUrl = "/images/partner_avatar_jona.png",
+  myAvatarUrl,
+  partnerAvatarUrl,
   isPaired,
   isVerified = true,
   isOnline = true,
@@ -29,7 +29,7 @@ export const PartnerStatusCard: React.FC<PartnerStatusCardProps> = ({
   return (
     <div className="w-full my-3 p-4 sm:p-5 rounded-[26px] bg-[#091325]/85 border border-slate-800/90 backdrop-blur-xl shadow-2xl select-none font-outfit">
       <div className="flex items-center justify-between px-1 py-1">
-        {/* Left Profile: Local User (Kris) */}
+        {/* Left Profile: Local User */}
         <div className="flex flex-col items-center text-center flex-1">
           <div className="relative w-18 h-18 sm:w-20 sm:h-20 rounded-full border-2 border-cyan-400 p-0.5 shadow-[0_0_22px_rgba(34,211,238,0.45)]">
             <div className="w-full h-full rounded-full bg-slate-950 flex items-center justify-center overflow-hidden relative">
@@ -110,7 +110,7 @@ export const PartnerStatusCard: React.FC<PartnerStatusCardProps> = ({
           </span>
         </div>
 
-        {/* Right Profile: Partner User (Jona) */}
+        {/* Right Profile: Partner User */}
         <div className="flex flex-col items-center text-center flex-1">
           <div className="relative w-18 h-18 sm:w-20 sm:h-20 rounded-full border-2 border-emerald-400 p-0.5 shadow-[0_0_22px_rgba(52,211,153,0.45)]">
             <div className="w-full h-full rounded-full bg-slate-950 flex items-center justify-center overflow-hidden relative">

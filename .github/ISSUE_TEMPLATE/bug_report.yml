@@ -1,0 +1,53 @@
+name: Bug Report
+description: Report a reproducible bug or broken behavior in Between Us
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a bug! **Do not report security vulnerabilities here** — use our [Security Policy](https://github.com/KrisCode180402/BetweenUs/security/policy) instead.
+        Never paste private credentials, `.env.local` values, SDP payloads, or personal call screenshots.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Description
+      description: Clear, concise summary of what went wrong.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Exact steps to trigger the issue.
+      placeholder: |
+        1. Open '/'
+        2. Start an audio or video call
+        3. Observe error...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs. Actual Behavior
+      description: What did you expect to happen, and what happened instead?
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Browser & Platform
+      description: Browser name/version, OS, and whether running as installed PWA or browser tab.
+      placeholder: "e.g., Chrome 131 on Android 15 (PWA standalone)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized Console / Diagnostic Output
+      description: Optional redacted error messages (remove any tokens, IPs, or personal identifiers).

@@ -24,8 +24,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<SettingsTabType>(initialTab);
   const [isPaired, setIsPaired] = useState<boolean>(true);
-  const [partnerName, setPartnerName] = useState<string>("Jona");
-  const [myDeviceName, setMyDeviceName] = useState<string>("Kris");
+  const [partnerName, setPartnerName] = useState<string>("Partner");
+  const [myDeviceName, setMyDeviceName] = useState<string>("My Device");
   const [myFingerprint, setMyFingerprint] = useState<string>("ECDSA-P256-AUTHENTICATED");
   const [safetyCode] = useState<string>("8F4A - 29C1 - 77B9 - D03E");
   const [copiedCode, setCopiedCode] = useState(false);
@@ -68,7 +68,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           const pName =
             (partner as any).partnerName ||
             partner.partnerPublicIdentity?.fingerprint?.substring(0, 6) ||
-            "Jona";
+            "Partner";
           setPartnerName(pName);
         } else {
           setIsPaired(false);
@@ -324,7 +324,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       {/* Main Container */}
       <div className="relative w-full max-w-md mx-auto h-full flex flex-col justify-between pt-0.5 pb-2 z-10 pointer-events-none">
         
-        {/* Top Header Bar (Matching 5 Settings page.png) */}
+        {/* Top Header Bar */}
         <div className="w-full flex items-center justify-between pt-1 pb-2 pointer-events-auto">
           {/* Back Button */}
           <button

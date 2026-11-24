@@ -2,14 +2,20 @@
 /node_modules
 /.pnpm-store
 
-# Next.js Build Output
+# Next.js Build Output & TypeScript Incremental Cache
 /.next/
 /out/
 /build/
 /dist/
+*.tsbuildinfo
+
+# Deployment Platform Metadata
+.vercel
 
 # Local Environment Variables
 .env
+.env.*
+!.env.example
 .env.local
 .env.development.local
 .env.test.local

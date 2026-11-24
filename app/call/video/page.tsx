@@ -64,7 +64,7 @@ export default function VideoCallPage() {
         }
       },
     };
-  }, [router]);
+  }, []);
 
   const initializeCallManager = useCallback((partnerIdentity: any) => {
     if (!callManagerRef.current) {

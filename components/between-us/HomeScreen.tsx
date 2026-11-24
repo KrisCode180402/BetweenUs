@@ -27,7 +27,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 }) => {
   const router = useRouter();
   const [isPaired, setIsPaired] = useState<boolean>(false);
-  const [partnerName, setPartnerName] = useState<string>(initialPartnerName || "Jona");
+  const [partnerName, setPartnerName] = useState<string>(initialPartnerName || "Partner");
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatusType>(initialConnectionStatus);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isInitializing, setIsInitializing] = useState<boolean>(true);
@@ -42,7 +42,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             (partner as any).partnerName ||
             partner.partnerPublicIdentity?.fingerprint?.substring(0, 6) ||
             initialPartnerName ||
-            "Jona";
+            "Partner";
           setPartnerName(name);
           setConnectionStatus("connected");
         } else {
@@ -95,7 +95,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   return (
     <div className="relative w-full h-dvh min-h-dvh max-h-dvh bg-[#040814] text-white flex flex-col items-center justify-between p-3 sm:p-4 overflow-hidden font-outfit select-none">
-      {/* Full-Screen Romantic Background Artwork (Background.png) */}
+      {/* Full-Screen Background Artwork */}
       <div className="absolute inset-0 w-full h-full z-0 overflow-hidden pointer-events-none">
         <Image
           src="/images/background.png"

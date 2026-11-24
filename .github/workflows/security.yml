@@ -19,12 +19,12 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4.2.2 # 11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # actions/checkout@v4.2.2
         with:
           persist-credentials: false
 
       - name: Setup Node.js Engine
-        uses: actions/setup-node@v4.1.0 # 39370e3970a6d050c38046917d8e3780d128491b
+        uses: actions/setup-node@39370e3970a6d050c38046917d8e3780d128491b # actions/setup-node@v4.1.0
         with:
           node-version: '20'
           cache: 'npm'
@@ -56,7 +56,7 @@ jobs:
 
       - name: Verify Bundle Secret Exposure
         run: |
-          if grep -rn "NEXT_PUBLIC_TURN_SHARED_SECRET" .next/; then
-            echo "CRITICAL SECURITY ERROR: TURN Shared Secret leaked in build bundle!"
+          if grep -rnE "NEXT_PUBLIC_TURN_SHARED_SECRET|NEXT_PUBLIC_VAPID_PRIVATE_KEY" .next/; then
+            echo "CRITICAL SECURITY ERROR: Server secret variable leaked in build bundle!"
             exit 1
           fi

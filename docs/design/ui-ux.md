@@ -47,21 +47,15 @@ The application defines 10 explicit presentation UI states:
 
 ## 3. Component Architecture & Responsibilities
 
-All presentation UI components reside under [`components/between-us/`](file:///x:/Between%20Us/components/between-us):
+All presentation UI components reside under [`components/between-us/`](../../components/between-us/):
 
 | Component File | Role / Responsibility |
 | :--- | :--- |
-| **[`Brand.tsx`](file:///x:/Between%20Us/components/between-us/Brand.tsx)** | Renders minimalist title, logo lock icon, and tagline. |
-| **[`SecurityStatus.tsx`](file:///x:/Between%20Us/components/between-us/SecurityStatus.tsx)** | Displays honest, non-deceptive security status badges (`🔒 PRIVATE CONNECTION`). |
-| **[`CallButton.tsx`](file:///x:/Between%20Us/components/between-us/CallButton.tsx)** | Accessible large touch target buttons for Audio Call (`🎙`) and Video Call (`📹`). |
-| **[`HomeScreen.tsx`](file:///x:/Between%20Us/components/between-us/HomeScreen.tsx)** | Assembles home layout with partner identity card and call actions. |
-| **[`CallScreen.tsx`](file:///x:/Between%20Us/components/between-us/CallScreen.tsx)** | Shell component for active call display and video/audio surfaces. |
-| **[`CallControls.tsx`](file:///x:/Between%20Us/components/between-us/CallControls.tsx)** | Accessible presentation controls for mic, camera, speaker, and end call (`☎`). |
-| **[`ConnectionStatus.tsx`](file:///x:/Between%20Us/components/between-us/ConnectionStatus.tsx)** | Status badge for active call presentation states. |
-| **[`SafetyVerification.tsx`](file:///x:/Between%20Us/components/between-us/SafetyVerification.tsx)** | Visual placeholder for HKDF-SHA256 SAS fingerprint verification. |
-| **[`ErrorState.tsx`](file:///x:/Between%20Us/components/between-us/ErrorState.tsx)** | Privacy-conscious error UI without internal stack traces or secrets. |
-| **[`LoadingState.tsx`](file:///x:/Between%20Us/components/between-us/LoadingState.tsx)** | Calm, un-cluttered loading state. |
-| **[`EndCallScreen.tsx`](file:///x:/Between%20Us/components/between-us/EndCallScreen.tsx)** | Minimal call-ended screen with zero call logs. |
+| **[`HomeScreen.tsx`](../../components/between-us/HomeScreen.tsx)** | Assembles home layout with partner identity card and call actions. |
+| **[`CallScreen.tsx`](../../components/between-us/CallScreen.tsx)** | Shell component for active call display and video/audio surfaces. |
+| **[`ConnectionStatus.tsx`](../../components/between-us/ConnectionStatus.tsx)** | Status type definitions and badge for active call presentation states. |
+| **[`SafetyVerification.tsx`](../../components/between-us/SafetyVerification.tsx)** | HKDF-SHA256 SAS fingerprint verification modal component. |
+| **[`ErrorState.tsx`](../../components/between-us/ErrorState.tsx)** | Privacy-conscious error UI without internal stack traces or secrets. |
 
 ---
 

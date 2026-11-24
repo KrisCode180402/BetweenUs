@@ -2,13 +2,13 @@
 
 **Tagline**: Two People. One Private Connection.  
 **System Phase**: Phase 03 — Privacy & Data Classification  
-**Status**: Approved Specification (Cross-Referenced to [`docs/privacy/data-classification.md`](file:///x:/Between%20Us/docs/privacy/data-classification.md))  
+**Status**: Approved Specification (Cross-Referenced to [`docs/privacy/data-classification.md`](../privacy/data-classification.md))  
 
 ---
 
 ## 1. Overview & Classification Hierarchy
 
-The master data classification table for **Between Us** is maintained in [`docs/privacy/data-classification.md`](file:///x:/Between%20Us/docs/privacy/data-classification.md). Data is classified into 6 levels:
+The master data classification table for **Between Us** is maintained in [`docs/privacy/data-classification.md`](../privacy/data-classification.md). Data is classified into 6 levels:
 * **LEVEL 0 — PUBLIC**: Static PWA app shell assets, hardcoded STUN URIs.
 * **LEVEL 1 — LOW SENSITIVITY**: Non-sensitive UI theme preferences, mute button states.
 * **LEVEL 2 — PRIVATE**: Public identity keys, paired relationship status, SAS fingerprints.

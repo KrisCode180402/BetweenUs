@@ -180,4 +180,4 @@ While TURN media relay traffic is fully `DTLS-SRTP` encrypted, the relay server 
 - Bandwidth byte counts
 - Relay port allocation pairs
 
-These limitations are explicitly reflected in [data-classification.md](file:///x:/Between%20Us/docs/privacy/data-classification.md).
+These limitations are explicitly reflected in [data-classification.md](../privacy/data-classification.md).

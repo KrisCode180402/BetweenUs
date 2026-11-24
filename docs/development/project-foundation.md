@@ -62,11 +62,11 @@ The `.gitignore` file enforces exclusion of:
 
 The `lib/` directory is partitioned into 8 isolated subdirectories, each governed by a dedicated contract README explaining future module ownership:
 
-* [`lib/crypto/README.md`](file:///x:/Between%20Us/lib/crypto/README.md) — Web Crypto API identity & key exchange wrappers (Phase 09).
-* [`lib/pairing/README.md`](file:///x:/Between%20Us/lib/pairing/README.md) — Out-of-band numeric pairing state machine (Phase 10).
-* [`lib/signaling/README.md`](file:///x:/Between%20Us/lib/signaling/README.md) — WSS WebSocket client driver & JSON validators (Phase 12).
-* [`lib/webrtc/README.md`](file:///x:/Between%20Us/lib/webrtc/README.md) — PeerConnection manager & DTLS-SRTP engine (Phase 13–15).
-* [`lib/storage/README.md`](file:///x:/Between%20Us/lib/storage/README.md) — IndexedDB non-extractable key store (Phase 08).
-* [`lib/security/README.md`](file:///x:/Between%20Us/lib/security/README.md) — CSP verification & log sanitizers (Phase 05 & 18).
-* [`lib/privacy/README.md`](file:///x:/Between%20Us/lib/privacy/README.md) — Zero-retention RAM scrubbers & GC triggers (Phase 21).
-* [`lib/session/README.md`](file:///x:/Between%20Us/lib/session/README.md) — Ephemeral call lifecycle state machine (Phase 16).
+* [`lib/crypto/README.md`](../../lib/crypto/README.md) — Web Crypto API identity & key exchange wrappers (Phase 09).
+* [`lib/pairing/README.md`](../../lib/pairing/README.md) — Out-of-band numeric pairing state machine (Phase 10).
+* [`lib/signaling/README.md`](../../lib/signaling/README.md) — Signaling client driver & JSON validators (Phase 12).
+* [`lib/webrtc/README.md`](../../lib/webrtc/README.md) — PeerConnection manager & DTLS-SRTP engine (Phase 13–15).
+* [`lib/storage/README.md`](../../lib/storage/README.md) — IndexedDB non-extractable key store (Phase 08).
+* [`lib/security/README.md`](../../lib/security/README.md) — CSP verification & log sanitizers (Phase 05 & 18).
+* [`lib/privacy/README.md`](../../lib/privacy/README.md) — Zero-retention RAM scrubbers & GC triggers (Phase 21).
+* [`lib/session/README.md`](../../lib/session/README.md) — Ephemeral call lifecycle state machine (Phase 16).

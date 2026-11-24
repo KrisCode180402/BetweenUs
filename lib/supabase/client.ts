@@ -1,9 +1,18 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 const supabaseUrl =
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "https://ncsdpcryhkszzpjnejvk.supabase.co";
+  process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
 const supabaseAnonKey =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5jc2RwY3J5aGtzenpwam5lanZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyMzEyNDksImV4cCI6MjEwNTgwNzI0OX0.SquMwTbLPYowTIJHlDYbQR050yLI501ngQK7j0LcAT4";
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder-anon-key";
+
+if (
+  typeof window !== "undefined" &&
+  (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+) {
+  console.warn(
+    "[Between Us] Supabase environment variables (NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY) are not configured. Pairing and Realtime signaling require a configured Supabase project."
+  );
+}
 
 /**
  * Singleton Supabase Client Instance.

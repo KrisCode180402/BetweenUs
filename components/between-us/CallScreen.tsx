@@ -32,7 +32,7 @@ interface CallScreenProps {
 export const CallScreen: React.FC<CallScreenProps> = ({
   type,
   callState,
-  partnerName = "Jona",
+  partnerName = "Partner",
   partnerAvatarUrl,
   localStream,
   remoteStream,
