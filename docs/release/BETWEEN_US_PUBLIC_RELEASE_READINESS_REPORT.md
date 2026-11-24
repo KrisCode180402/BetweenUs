@@ -194,7 +194,7 @@ See full per-file audit in [`ASSET_CLEANUP_REPORT.md`](./ASSET_CLEANUP_REPORT.md
   - `docs/release/LICENSE_OPTIONS.md`
   - `docs/release/PUBLIC_RELEASE_CHECKLIST.md`
   - `docs/release/BETWEEN_US_PUBLIC_RELEASE_READINESS_REPORT.md` (this report)
-- **License Decision**: No `LICENSE` file was invented; `README.md` accurately states All Rights Reserved pending owner selection in `docs/release/LICENSE_OPTIONS.md`.
+- **License Decision**: **MIT License** selected by owner (`@KrisCode180402`); [`LICENSE`](../../LICENSE) added and [`README.md`](../../README.md) updated.
 
 ---
 

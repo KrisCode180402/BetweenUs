@@ -8,26 +8,34 @@ It is designed around a single focused purpose: direct, low-friction voice and v
 
 ## Table of Contents
 
-- [Design Philosophy](#design-philosophy)
-- [Key Features](#key-features)
-- [Technology Stack](#technology-stack)
-- [Architecture Overview](#architecture-overview)
-- [Application Flow](#application-flow)
-- [Repository Structure](#repository-structure)
-- [Getting Started](#getting-started)
-- [Environment Configuration](#environment-configuration)
-- [Supabase Setup](#supabase-setup)
-- [Running Locally](#running-locally)
-- [Build and Validation](#build-and-validation)
-- [Deployment](#deployment)
-- [Privacy and Security](#privacy-and-security)
-- [Browser Compatibility](#browser-compatibility)
-- [Known Limitations](#known-limitations)
-- [Roadmap](#roadmap)
-- [Contributing](#contributing)
-- [Security Reporting](#security-reporting)
-- [License](#license)
-- [Acknowledgements](#acknowledgements)
+- [Between Us](#between-us)
+  - [Table of Contents](#table-of-contents)
+  - [Design Philosophy](#design-philosophy)
+  - [Key Features](#key-features)
+  - [Technology Stack](#technology-stack)
+  - [Architecture Overview](#architecture-overview)
+  - [Application Flow](#application-flow)
+  - [Repository Structure](#repository-structure)
+  - [Getting Started](#getting-started)
+    - [Prerequisites](#prerequisites)
+    - [Installation](#installation)
+  - [Environment Configuration](#environment-configuration)
+  - [Supabase Setup](#supabase-setup)
+    - [Required Tables](#required-tables)
+    - [Realtime \& Row Level Security (RLS)](#realtime--row-level-security-rls)
+  - [Running Locally](#running-locally)
+    - [Media \& PWA Testing Notes](#media--pwa-testing-notes)
+  - [Build and Validation](#build-and-validation)
+  - [Deployment](#deployment)
+  - [Privacy and Security](#privacy-and-security)
+    - [What Between Us Is Designed to Protect](#what-between-us-is-designed-to-protect)
+  - [Browser Compatibility](#browser-compatibility)
+  - [Known Limitations](#known-limitations)
+  - [Roadmap](#roadmap)
+  - [Contributing](#contributing)
+  - [Security Reporting](#security-reporting)
+  - [License](#license)
+  - [Acknowledgements](#acknowledgements)
 
 ---
 
@@ -436,7 +444,6 @@ Planned engineering work based on the verified gaps above:
 - [ ] Persist Web Push subscriptions cleanly and align `deviceId` identifiers across Settings and `AudioCallManager`.
 - [ ] Consolidate PWA manifest definitions to a single source of truth and gate `/pwa-debug` to development mode only.
 - [ ] Implement real persistence for Settings notification toggles and `enumerateDevices()` speaker selection where supported.
-- [ ] Resolve upstream `next` / transitive security advisories reported by `npm audit`.
 
 ---
 
@@ -454,9 +461,7 @@ Please do **not** report security vulnerabilities in public GitHub issues. Follo
 
 ## License
 
-**No open-source license has been selected yet** (default copyright / All Rights Reserved currently applies).
-
-A license decision is pending repository owner approval—see [`docs/release/LICENSE_OPTIONS.md`](docs/release/LICENSE_OPTIONS.md). Until a `LICENSE` file is added by the repository owner, no redistribution or commercial reuse rights are granted.
+This project is licensed under the **MIT License** — see the [`LICENSE`](LICENSE) file for details.
 
 ---
 

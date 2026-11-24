@@ -1,10 +1,8 @@
 # License Decision Report — Between Us
 
-**Status:** **PENDING OWNER APPROVAL** — No `LICENSE` file has been created yet.
+**Status:** **APPROVED — MIT License Selected by Repository Owner (`@KrisCode180402`)**
 
-Publishing a repository publicly on GitHub does **not** automatically grant an open-source license. Without a `LICENSE` file, default copyright law applies (**All Rights Reserved**): visitors can view and fork the repository on GitHub under GitHub's Terms of Service, but have no legal permission to copy, modify, redistribute, or deploy the code.
-
-Before making `KrisCode180402/BetweenUs` public, the repository owner (`@KrisCode180402`) should select one of the options below.
+The repository root now includes [`LICENSE`](../../LICENSE) under the **MIT License**, and [`README.md`](../../README.md) has been updated accordingly.
 
 ---
 

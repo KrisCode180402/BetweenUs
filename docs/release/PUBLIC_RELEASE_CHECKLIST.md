@@ -16,8 +16,8 @@ Complete every required manual check below before switching `KrisCode180402/Betw
 - [x] Resolved all 11 `npm audit` advisories (`next` upgraded to `15.5.29`, `postcss` overridden to `^8.5.28`, `minimatch@3 > brace-expansion` overridden to `^1.1.22`); `npm audit --audit-level=high` now reports **0 vulnerabilities** and all checks (`type-check`, `lint`, 133 tests, `build`) pass.
 
 ## 3. Licensing & Asset Rights
-- [ ] Review [`LICENSE_OPTIONS.md`](./LICENSE_OPTIONS.md), select a license (or confirm All Rights Reserved), add `LICENSE` if applicable, and update `README.md`.
-- [ ] Verify redistribution rights for `public/sounds/incoming-ringtone.mp3`, `public/sounds/outgoing-ringtone.mp3`, and `public/images/*.png`.
+- [x] Selected **MIT License** (`LICENSE` added to repository root and `README.md` updated).
+- [ ] Confirm redistribution rights for `public/sounds/incoming-ringtone.mp3`, `public/sounds/outgoing-ringtone.mp3`, and `public/images/*.png`.
 
 ## 4. GitHub Repository Settings (Before or Immediately Upon Publishing)
 - [ ] Enable **GitHub Private Vulnerability Reporting** (`Settings → Code security and analysis → Private vulnerability reporting`).
