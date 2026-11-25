@@ -260,7 +260,15 @@ export const CallScreen: React.FC<CallScreenProps> = ({
   };
 
   const handleBackButtonClick = () => {
-    if (isConnected || callState === "Connecting" || callState === "Ringing") {
+    const stateStr = String(callState || "");
+    if (
+      isConnected ||
+      stateStr.startsWith("Connecting") ||
+      stateStr.startsWith("Ringing") ||
+      stateStr === "OUTGOING_RINGING" ||
+      stateStr === "OUTGOING_INITIATING" ||
+      stateStr === "NEGOTIATING"
+    ) {
       setShowBackConfirm(true);
     } else {
       onEndCall();
@@ -320,6 +328,7 @@ export const CallScreen: React.FC<CallScreenProps> = ({
             ref={fullscreenVideoRef}
             autoPlay
             playsInline
+            muted={isStreamSwapped}
             style={{ transform: fullscreenTransform }}
             className="w-full h-full object-cover"
           />
@@ -629,38 +638,40 @@ export const CallScreen: React.FC<CallScreenProps> = ({
                 </span>
               </div>
 
-              {/* 2. Camera Toggle Button */}
-              <div className="flex flex-col items-center">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleVideoClick();
-                  }}
-                  aria-label={localCameraOff ? "Turn camera on" : "Turn camera off"}
-                  className={`w-13 h-13 sm:w-15 sm:h-15 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-lg active:scale-95 ${
-                    localCameraOff
-                      ? "bg-rose-500/25 text-rose-400 border border-rose-500/50 shadow-[0_0_15px_rgba(244,63,94,0.35)]"
-                      : "bg-slate-900/80 text-white border border-white/15 hover:bg-slate-800"
-                  }`}
-                >
-                  {localCameraOff ? (
-                    /* Camera Off Icon */
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
-                      <line x1="3" y1="3" x2="21" y2="21" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
-                    </svg>
-                  ) : (
-                    /* Camera Active Icon */
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
-                    </svg>
-                  )}
-                </button>
-                <span className="text-xs text-slate-300 mt-1.5 font-medium">
-                  {localCameraOff ? "Cam Off" : "Camera"}
-                </span>
-              </div>
+              {/* 2. Camera Toggle Button (Video Calls Only) */}
+              {type === "video" && (
+                <div className="flex flex-col items-center">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleVideoClick();
+                    }}
+                    aria-label={localCameraOff ? "Turn camera on" : "Turn camera off"}
+                    className={`w-13 h-13 sm:w-15 sm:h-15 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-lg active:scale-95 ${
+                      localCameraOff
+                        ? "bg-rose-500/25 text-rose-400 border border-rose-500/50 shadow-[0_0_15px_rgba(244,63,94,0.35)]"
+                        : "bg-slate-900/80 text-white border border-white/15 hover:bg-slate-800"
+                    }`}
+                  >
+                    {localCameraOff ? (
+                      /* Camera Off Icon */
+                      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
+                        <line x1="3" y1="3" x2="21" y2="21" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
+                      </svg>
+                    ) : (
+                      /* Camera Active Icon */
+                      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
+                      </svg>
+                    )}
+                  </button>
+                  <span className="text-xs text-slate-300 mt-1.5 font-medium">
+                    {localCameraOff ? "Cam Off" : "Camera"}
+                  </span>
+                </div>
+              )}
 
               {/* 3. Big Red Circular End Call Button */}
               <div className="flex flex-col items-center">

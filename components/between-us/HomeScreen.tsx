@@ -135,7 +135,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         <div className="w-full flex-shrink-0 pt-1">
           <SecurityCard
             partnerName={partnerName}
-            onClick={() => setIsSettingsOpen(false)}
+            onClick={() => setIsSettingsOpen(true)}
           />
         </div>
       </div>

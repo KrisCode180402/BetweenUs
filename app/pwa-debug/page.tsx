@@ -1,12 +1,15 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 
 interface PwaCheckItem {
   label: string;
   status: "PASS" | "FAIL" | "CHECKING" | "AVAILABLE" | "UNAVAILABLE";
   detail: string;
 }
+
+const isProdBuild = process.env.NODE_ENV === "production";
 
 export default function PwaDebugPage() {
   const [checks, setChecks] = useState<Record<string, PwaCheckItem>>({
@@ -22,6 +25,7 @@ export default function PwaDebugPage() {
   });
 
   useEffect(() => {
+    if (isProdBuild) return;
     const updateCheck = (key: string, status: PwaCheckItem["status"], detail: string) => {
       setChecks((prev) => ({
         ...prev,
@@ -120,6 +124,25 @@ export default function PwaDebugPage() {
         return <span className="px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40 font-bold text-[10px] tracking-wider uppercase animate-pulse">CHECKING</span>;
     }
   };
+
+  if (isProdBuild) {
+    return (
+      <div className="min-h-screen w-full bg-[#040814] text-white p-6 font-outfit select-none flex flex-col items-center justify-center text-center">
+        <div className="w-full max-w-sm bg-[#081226] border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-3">
+          <h1 className="text-base font-bold text-white">Diagnostics Disabled</h1>
+          <p className="text-xs text-slate-400">
+            Internal PWA diagnostics are restricted to local development builds.
+          </p>
+          <Link
+            href="/"
+            className="inline-block w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs transition-colors"
+          >
+            Return Home
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen w-full bg-[#040814] text-white p-4 sm:p-6 font-outfit select-none flex flex-col items-center justify-center">

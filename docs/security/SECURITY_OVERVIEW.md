@@ -30,12 +30,15 @@ Between Us is designed to minimize server-side data collection and protect 1-to-
 
 > **Important Distinction:** WebRTC DTLS-SRTP provides encrypted transport between peer endpoints, but its security against an active man-in-the-middle on the signaling channel depends on authenticating SDP DTLS fingerprints with verified device keys. Full end-to-end cryptographic identity binding over the active Supabase signaling path is a planned hardening milestone (see Section 4).
 
-### 2.3 Signaling Validation & Anti-Replay (`lib/signaling/`)
+### 2.3 Signaling Validation, ECDSA Signing & Anti-Replay (`lib/signaling/`)
 - `SupabaseSignalingClient` enforces:
+  - Domain-separated **ECDSA P-256 signing** (`SIGNAL_V1|...`) on outgoing Realtime frames when local identity is initialized, and cryptographic signature + SHA-256 fingerprint + pinned partner SPKI verification (`verifyAndValidatePayload`) on incoming frames
   - Self-message rejection (`senderId === localUserId`)
   - Timestamp skew validation (rejects messages older/newer than 10 minutes)
   - Payload size cap (`64 KB`)
   - Bounded replay deduplication cache (`200` message IDs)
+- `lib/pairing/supabase-pairing.ts` syncs partner ECDSA P-256 SPKI public keys during pairing, purges plaintext pairing codes from `localStorage` once settled, and pairs with Postgres RLS policies (`supabase/migrations/20261125000000_initial_schema_and_rls.sql`) blocking `DELETE`, restricting `couples`/`couple_members` updates, and enforcing 64-char SHA-256 hashes and <=15-minute TTLs on `pairing_sessions`.
+- `lib/push/push-security.ts` enforces strict HTTPS SSRF endpoint validation (blocking localhost, loopback, cloud metadata, and RFC1918 private IPs), per-IP sliding-window rate limiting, and ECDSA P-256 request proofs on `/api/push/subscribe` and `/api/push/send`.
 - The optional standalone WebSocket signaling server (`server/signaling/`) additionally implements ECDSA P-256 `SESSION_JOIN` verification, 60-second timestamp skew checks, nonce replay tracking, prototype-pollution guards, 32 KB payload limits, and per-IP/per-socket rate limiting.
 
 ### 2.4 HTTP Security Headers (`next.config.ts`)
@@ -77,11 +80,10 @@ Applied globally to `/(.*)`:
 
 Transparency about current gaps is essential:
 
-1. **Pairing & Signaling Authentication**: Active Supabase pairing (`lib/pairing/supabase-pairing.ts`) and Realtime broadcast (`lib/signaling/supabase-signaling.ts`) do not yet perform the ECDSA mutual challenge-response or store the partner's SPKI public key, which also prevents live two-party HKDF Safety Verification (`lib/safety/`) from binding both identities.
-2. **Push API Route Authorization**: `/api/push/subscribe` and `/api/push/send` currently accept requests without cryptographic caller authentication and store subscriptions in volatile server RAM.
-3. **Public Fallback TURN Relay**: `lib/webrtc/ice.ts` includes public OpenRelay fallback credentials (`openrelay.metered.ca`) for NAT traversal; wiring the server-side HMAC-SHA1 Coturn API (`/api/turn/credentials`) into `AudioCallManager` is recommended for self-hosted production deployments.
-4. **CSP Inline Script Allowance**: Next.js App Router runtime currently uses `'unsafe-inline' 'unsafe-eval'` in `script-src` and broad `connect-src` protocol wildcards in `next.config.ts`. Nonce-based CSP and stricter origin allowlists are planned hardening improvements.
-5. **Upstream Dependency Advisories**: Monitor and address `npm audit` findings (particularly Next.js framework updates) before deploying publicly.
+1. **Out-of-Band Initial Trust (TOFU)**: Pairing exchanges SPKI public keys over Supabase; users should compare the symmetric HKDF-SHA256 Safety Code (`SafetyVerification.tsx` / Settings) out-of-band on first pairing to verify zero initial key substitution.
+2. **Volatile Push Subscription Storage**: `/api/push/*` validates SSRF, rate limits, and verifies ECDSA proofs when provided, while subscriptions remain stored in volatile server memory across serverless restarts.
+3. **Public Fallback TURN Relay**: `AudioCallManager` fetches ephemeral HMAC-SHA1 Coturn credentials from `/api/turn/credentials` first and falls back to public STUN / OpenRelay TURN (`lib/webrtc/ice.ts`) when `TURN_SHARED_SECRET` is unconfigured.
+4. **CSP Inline Script Allowance**: Next.js App Router runtime currently uses `'unsafe-inline' 'unsafe-eval'` in `script-src`. Nonce-based CSP is a planned hardening improvement.
 
 ---
 

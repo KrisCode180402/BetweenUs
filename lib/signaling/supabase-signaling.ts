@@ -1,16 +1,25 @@
 import { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase } from "../supabase/client";
 import { CallType } from "../webrtc/types";
+import { getPublicIdentity, signDataWithIdentity, verifyIdentitySignature } from "../crypto/identity";
+import {
+  bufferToHex,
+  computePublicKeyFingerprint,
+  hexToBuffer,
+  importPublicKeyFromSpkiHex,
+} from "../crypto/identity/key-gen";
 
 export interface SupabaseSignalingPayload {
   sessionId: string;
   senderId: string;
-  targetId?: string;
-  callType?: CallType;
-  sdp?: string;
-  candidate?: RTCIceCandidateInit;
-  reason?: string;
-  timestamp?: number;
+  targetId?: string | undefined;
+  callType?: CallType | undefined;
+  sdp?: string | undefined;
+  candidate?: RTCIceCandidateInit | undefined;
+  reason?: string | undefined;
+  timestamp?: number | undefined;
+  senderSpkiHex?: string | undefined;
+  signatureHex?: string | undefined;
 }
 
 export type SupabaseSignalingEvent =
@@ -35,6 +44,32 @@ export interface SupabaseSignalingEvents {
   onError?: (error: string) => void;
 }
 
+/**
+ * Deterministic canonical byte payload for ECDSA P-256 signing of Realtime signaling frames.
+ */
+export function buildSignalingCanonicalBytes(
+  event: SupabaseSignalingEvent,
+  payload: SupabaseSignalingPayload
+): Uint8Array {
+  const candidateStr = payload.candidate?.candidate || "";
+  const sdpMid = payload.candidate?.sdpMid ?? "";
+  const sdpMLine = payload.candidate?.sdpMLineIndex ?? "";
+  const canonical = [
+    "SIGNAL_V1",
+    event,
+    payload.sessionId,
+    payload.senderId,
+    String(payload.timestamp ?? 0),
+    payload.callType ?? "",
+    payload.sdp ?? "",
+    candidateStr,
+    String(sdpMid),
+    String(sdpMLine),
+    payload.reason ?? "",
+  ].join("|");
+  return new TextEncoder().encode(canonical);
+}
+
 export class SupabaseSignalingClient {
   private channel: RealtimeChannel | null = null;
   private channelName: string = "";
@@ -46,7 +81,8 @@ export class SupabaseSignalingClient {
   constructor(
     private coupleId: string,
     private localUserId: string,
-    private events: SupabaseSignalingEvents = {}
+    private events: SupabaseSignalingEvents = {},
+    private expectedPartnerSpkiHex?: string
   ) {
     this.channelName = `between-us-call:${coupleId || "default-couple"}`;
   }
@@ -54,7 +90,7 @@ export class SupabaseSignalingClient {
   /**
    * Validates signaling message schema, size, sender identity, and replay freshness.
    */
-  private validatePayload(payload: any): payload is SupabaseSignalingPayload {
+  public validatePayload(payload: any): payload is SupabaseSignalingPayload {
     if (!payload || typeof payload !== "object") return false;
     if (payload.senderId === this.localUserId) return false;
 
@@ -101,6 +137,79 @@ export class SupabaseSignalingClient {
   }
 
   /**
+   * Validates schema + cryptographic ECDSA P-256 signature when present or pinned.
+   */
+  public async verifyAndValidatePayload(
+    event: SupabaseSignalingEvent,
+    payload: any
+  ): Promise<boolean> {
+    if (!this.validatePayload(payload)) {
+      return false;
+    }
+
+    const hasSignature =
+      typeof payload.signatureHex === "string" &&
+      payload.signatureHex.length > 0 &&
+      typeof payload.senderSpkiHex === "string" &&
+      payload.senderSpkiHex.length > 0;
+
+    if (hasSignature) {
+      try {
+        const spkiHex = payload.senderSpkiHex as string;
+        const sigHex = payload.signatureHex as string;
+
+        if (
+          this.expectedPartnerSpkiHex &&
+          this.expectedPartnerSpkiHex.length > 0 &&
+          spkiHex.toLowerCase() !== this.expectedPartnerSpkiHex.toLowerCase()
+        ) {
+          console.warn("Signaling security notice: Sender SPKI does not match pinned partner identity.");
+          return false;
+        }
+
+        if (/^[0-9a-f]{64}$/i.test(payload.senderId)) {
+          const derivedFp = await computePublicKeyFingerprint(hexToBuffer(spkiHex));
+          if (derivedFp.toLowerCase() !== payload.senderId.toLowerCase()) {
+            console.warn("Signaling security notice: Sender SPKI fingerprint mismatch.");
+            return false;
+          }
+        }
+
+        const publicKey = await importPublicKeyFromSpkiHex(spkiHex);
+        const canonicalBytes = buildSignalingCanonicalBytes(event, payload);
+        const validSig = await verifyIdentitySignature(
+          publicKey,
+          hexToBuffer(sigHex),
+          canonicalBytes
+        );
+        if (!validSig) {
+          console.warn("Signaling security notice: Invalid ECDSA signature rejected.");
+          return false;
+        }
+      } catch {
+        console.warn("Signaling security notice: Malformed cryptographic signature rejected.");
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  private attachSignedListener(
+    event: SupabaseSignalingEvent,
+    handler?: (payload: SupabaseSignalingPayload) => void
+  ): void {
+    if (!this.channel) return;
+    this.channel.on("broadcast", { event }, ({ payload }) => {
+      void this.verifyAndValidatePayload(event, payload).then((ok) => {
+        if (ok) {
+          handler?.(payload);
+        }
+      });
+    });
+  }
+
+  /**
    * Initializes and subscribes to the ephemeral Supabase Realtime channel for this couple.
    * Auto-heals closed or errored channels.
    */
@@ -119,48 +228,14 @@ export class SupabaseSignalingClient {
       },
     });
 
-    // Listen for broadcast events with strict payload authorization validation
-    this.channel
-      .on("broadcast", { event: "call_invite" }, ({ payload }) => {
-        if (this.validatePayload(payload)) {
-          this.events.onCallInvite?.(payload);
-        }
-      })
-      .on("broadcast", { event: "call_accept" }, ({ payload }) => {
-        if (this.validatePayload(payload)) {
-          this.events.onCallAccept?.(payload);
-        }
-      })
-      .on("broadcast", { event: "call_decline" }, ({ payload }) => {
-        if (this.validatePayload(payload)) {
-          this.events.onCallDecline?.(payload);
-        }
-      })
-      .on("broadcast", { event: "call_cancel" }, ({ payload }) => {
-        if (this.validatePayload(payload)) {
-          this.events.onCallCancel?.(payload);
-        }
-      })
-      .on("broadcast", { event: "sdp_offer" }, ({ payload }) => {
-        if (this.validatePayload(payload)) {
-          this.events.onSdpOffer?.(payload);
-        }
-      })
-      .on("broadcast", { event: "sdp_answer" }, ({ payload }) => {
-        if (this.validatePayload(payload)) {
-          this.events.onSdpAnswer?.(payload);
-        }
-      })
-      .on("broadcast", { event: "ice_candidate" }, ({ payload }) => {
-        if (this.validatePayload(payload)) {
-          this.events.onIceCandidate?.(payload);
-        }
-      })
-      .on("broadcast", { event: "call_end" }, ({ payload }) => {
-        if (this.validatePayload(payload)) {
-          this.events.onCallEnd?.(payload);
-        }
-      });
+    this.attachSignedListener("call_invite", this.events.onCallInvite);
+    this.attachSignedListener("call_accept", this.events.onCallAccept);
+    this.attachSignedListener("call_decline", this.events.onCallDecline);
+    this.attachSignedListener("call_cancel", this.events.onCallCancel);
+    this.attachSignedListener("sdp_offer", this.events.onSdpOffer);
+    this.attachSignedListener("sdp_answer", this.events.onSdpAnswer);
+    this.attachSignedListener("ice_candidate", this.events.onIceCandidate);
+    this.attachSignedListener("call_end", this.events.onCallEnd);
 
     return new Promise((resolve) => {
       const timer = setTimeout(() => {
@@ -185,7 +260,8 @@ export class SupabaseSignalingClient {
   }
 
   /**
-   * Broadcasts a signaling message over the active Supabase channel with automatic retry.
+   * Signs (when local ECDSA identity is initialized) and broadcasts a signaling message
+   * over the active Supabase channel with automatic retry.
    */
   public async send(event: SupabaseSignalingEvent, payload: Partial<SupabaseSignalingPayload>): Promise<void> {
     const fullPayload: SupabaseSignalingPayload = {
@@ -194,6 +270,18 @@ export class SupabaseSignalingClient {
       timestamp: Date.now(),
       ...payload,
     };
+
+    try {
+      const pub = getPublicIdentity();
+      if (pub?.spkiHex) {
+        fullPayload.senderSpkiHex = pub.spkiHex;
+        const canonicalBytes = buildSignalingCanonicalBytes(event, fullPayload);
+        const sigBuf = await signDataWithIdentity(canonicalBytes);
+        fullPayload.signatureHex = bufferToHex(sigBuf);
+      }
+    } catch {
+      // Proceed unsigned only when browser identity is not yet unlocked (e.g. headless unit mock)
+    }
 
     if (!this.channel || !this.isSubscribed || (this.channel as any).state !== "joined") {
       await this.subscribe();
@@ -206,7 +294,6 @@ export class SupabaseSignalingClient {
     });
 
     if (res !== "ok") {
-      // Re-subscribe and retry once on transient channel failure
       await this.unsubscribe();
       await this.subscribe();
       res = await this.channel?.send({

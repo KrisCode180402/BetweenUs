@@ -55,22 +55,22 @@ Feature statuses below reflect verified behavior in the current codebase:
 | Category | Feature | Status | Implementation Notes |
 | :--- | :--- | :--- | :--- |
 | **Device Identity** | Non-extractable ECDSA P-256 key generation & SHA-256 fingerprint in IndexedDB | **Implemented** | `lib/crypto/identity/*`, stored in IndexedDB (`between-us-app-db`) with `extractable: false`. |
-| **Device Pairing** | 12-character one-time pairing code generation, SHA-256 code hashing, partner approval modal, and local trust persistence | **Implemented** | Active UI uses Supabase Postgres + Realtime (`lib/pairing/supabase-pairing.ts`). A separate cryptographic challenge-response engine (`lib/pairing/service.ts`) exists and is unit-tested, but is not yet wired to the active UI. |
-| **Safety Verification** | HKDF-SHA256 Short Authentication String (6 words, 5 emojis, short code, full hex) & match/mismatch controls | **Partially Implemented** | UI modal (`components/between-us/SafetyVerification.tsx`) and HKDF engine (`lib/safety/*`) are implemented, but Supabase pairing does not currently populate the remote partner's SPKI public key, and Settings shows a placeholder code. |
+| **Device Pairing** | 12-character one-time pairing code generation, SHA-256 code hashing, SPKI public key exchange, partner approval modal, and local trust persistence | **Implemented** | Active UI uses Supabase Postgres + Realtime (`lib/pairing/supabase-pairing.ts`), syncing partner ECDSA P-256 SPKI public keys and scrubbing plaintext codes from `localStorage` on completion. |
+| **Safety Verification** | Symmetric dual-identity HKDF-SHA256 Short Authentication String (6 words, 5 emojis, short code, full hex) & match/mismatch pinning | **Implemented** | Binds both local and remote SPKI keys symmetrically (`lib/safety/*`) across both active calls (`SafetyVerification.tsx`) and Settings (`SettingsScreen.tsx`). |
 | **Private Home Interface** | Paired partner view, direct Audio/Video call launchers, active call return banner, settings modal | **Implemented** | `app/page.tsx`, `app/home/page.tsx`, `components/between-us/HomeScreen.tsx`. Partner presence indicator is currently static once paired. |
 | **Audio Calling** | 1-to-1 WebRTC voice calls with echo cancellation, noise suppression, Opus FEC SDP tuning, mute toggle, and live audio visualizer | **Implemented** | `app/call/audio/page.tsx`, `lib/webrtc/call-manager.ts`, `lib/webrtc/peer-connection.ts`, `components/between-us/AudioVisualizer.tsx`. |
-| **Video Calling** | 1-to-1 WebRTC video calls with draggable & swappable Picture-in-Picture (PiP), front/rear camera flip, smart selfie mirroring, and tap-to-hide controls | **Implemented** | `app/call/video/page.tsx`, `components/between-us/CallScreen.tsx`. |
-| **Call Management** | Outgoing & incoming call modals, global incoming call listener, simultaneous remote call termination, ICE restart reconnection, back-navigation guard, Screen Wake Lock | **Implemented** | `GlobalIncomingCallHandler.tsx`, `IncomingCallModal.tsx`, `ActiveCallBanner.tsx`, `lib/webrtc/call-state-machine.ts`, `lib/webrtc/call-session-store.ts`, `lib/webrtc/wakelock-manager.ts`. |
+| **Video Calling** | 1-to-1 WebRTC video calls with draggable & swappable Picture-in-Picture (PiP), echo-safe local stream mute, front/rear camera flip, smart selfie mirroring, and tap-to-hide controls | **Implemented** | `app/call/video/page.tsx`, `components/between-us/CallScreen.tsx`. |
+| **Call Management** | ECDSA-signed Realtime signaling, outgoing & incoming call modals, global incoming call listener, simultaneous remote call termination, ICE restart reconnection, back-navigation guard, Screen Wake Lock | **Implemented** | `lib/signaling/supabase-signaling.ts`, `GlobalIncomingCallHandler.tsx`, `IncomingCallModal.tsx`, `ActiveCallBanner.tsx`, `lib/webrtc/call-state-machine.ts`. |
 | **Ringtones & Haptics** | Outgoing/incoming MP3 ringtones with Web Audio API synthesized fallback and mobile vibration pattern | **Implemented** | `lib/sound/ringtone.ts`, `public/sounds/*.mp3`. |
-| **Screen Sharing** | `getDisplayMedia` track replacement with active sharing banner | **Experimental** | Implemented in `lib/webrtc/peer-connection.ts` and `CallScreen.tsx`, but currently blocked by `Permissions-Policy: display-capture=()` in `next.config.ts` and limited to desktop browsers. |
+| **Screen Sharing** | `getDisplayMedia` track replacement with active sharing banner | **Experimental** | Implemented in `lib/webrtc/peer-connection.ts` and `CallScreen.tsx`; intentionally disabled by default via `Permissions-Policy: display-capture=()` in `next.config.ts` and limited to desktop browsers. |
 | **Speaker Controls** | Speaker output toggle button in call UI | **Partially Implemented** | Calls `HTMLAudioElement.setSinkId` when supported, without full `enumerateDevices()` audio-output device picker. |
-| **Notifications** | Browser Notifications API + Web Push subscription routes (`web-push` / VAPID) | **Partially Implemented** | Foreground browser notifications work when granted. Server-side push subscriptions (`lib/push/push-store.ts`) are stored in volatile process memory (non-persistent across serverless restarts) and require aligning `deviceId` keys between Settings and Call Manager. |
+| **Notifications** | Browser Notifications API + SSRF-hardened, rate-limited, ECDSA-signed Web Push routes (`web-push` / VAPID) | **Partially Implemented** | Foreground notifications and signed push dispatch work (`lib/push/*`, `app/api/push/*`). Server-side subscriptions (`lib/push/push-store.ts`) are stored in volatile process memory across serverless restarts. |
 | **Permissions & Hardware Tests** | Microphone & camera permission status checks, live camera preview, and live microphone level meter | **Implemented** | `components/between-us/settings/SettingsScreen.tsx`, `lib/permissions/media-permissions.ts`. |
 | **Privacy Controls** | Blur privacy overlay on tab hide, emergency exit cache purge & teardown, sanitized structured logging | **Implemented** | `lib/privacy/privacy-mode.ts`, `lib/privacy/logger.ts`, `components/between-us/PrivacyOverlay.tsx`. |
-| **Settings** | Device nickname, pairing status, privacy info, permissions, notifications, security overview, unpair/reset | **Partially Implemented** | Device nickname persistence, hardware tests, ringtone preview, and unpair/reset work; notification preference toggles and manual cache-clear buttons are currently UI-only. |
-| **Error & Diagnostics** | Global error boundary + connection diagnostics screen testing internet, signaling, ICE/TURN, and media permissions | **Implemented** | `app/connection-error/page.tsx`, `components/between-us/ErrorBoundary.tsx`, `lib/connection/diagnostics.ts`. |
+| **Settings** | Device nickname, live HKDF safety code, privacy info, permissions, notifications, security overview, unpair/reset | **Partially Implemented** | Device nickname persistence, live safety code, hardware tests, Web Push toggle, ringtone preview, and unpair/reset work; local notification preference switches and manual cache-clear buttons are UI-only. |
+| **Error & Diagnostics** | Global error boundary + connection diagnostics screen testing internet, signaling, ICE/TURN, and media permissions | **Implemented** | `app/connection-error/page.tsx`, `components/between-us/ErrorBoundary.tsx`, `lib/connection/diagnostics.ts` (`/pwa-debug` gated to development mode only). |
 | **PWA Support** | Web App Manifest, Service Worker static shell cache, update banner, Android/Desktop & iOS install prompts | **Implemented** | `public/manifest.json`, `public/sw.js`, `components/between-us/SWRegister.tsx`, `InstallPrompt.tsx`. |
-| **TURN Relay API** | Ephemeral HMAC-SHA1 Coturn REST credential endpoint with rate limiting | **Partially Implemented** | Server endpoint `app/api/turn/credentials/route.ts` and `lib/turn/*` are implemented and tested; runtime WebRTC calls currently use static/public STUN and OpenRelay TURN config in `lib/webrtc/ice.ts`. |
+| **TURN Relay API** | Ephemeral HMAC-SHA1 Coturn REST credential endpoint with rate limiting & automatic WebRTC client fetch | **Implemented** | `app/api/turn/credentials/route.ts`, `lib/turn/*`, and `AudioCallManager.resolveRtcConfiguration()` with automatic STUN/OpenRelay fallback. |
 | **Self-Hosted WS Signaling** | Standalone WebSocket signaling server with ECDSA auth, replay protection, and rate limiting | **Experimental / Test-Only** | Implemented and unit-tested under `server/signaling/` and `lib/signaling/client.ts`; not wired to the Next.js runtime UI (which uses Supabase Realtime) and currently lacks a CLI boot entrypoint. |
 
 ---
@@ -296,7 +296,7 @@ Copy [`.env.example`](.env.example) to `.env.local`. Never commit `.env.local` a
 
 The runtime pairing and signaling flows (`lib/pairing/supabase-pairing.ts` and `lib/signaling/supabase-signaling.ts`) interact with **Supabase Postgres** and **Supabase Realtime**.
 
-> **Note:** SQL migration files are not yet committed to the repository. To run your own instance, create a new Supabase project and provision the schema below.
+Apply the versioned migration file in [`supabase/migrations/20261125000000_initial_schema_and_rls.sql`](supabase/migrations/20261125000000_initial_schema_and_rls.sql) in your Supabase SQL Editor (or via `supabase db push`) to provision all four tables, indexes, and strict Row Level Security (RLS) policies.
 
 ### Required Tables
 
@@ -363,7 +363,7 @@ npm run type-check
 # ESLint check
 npm run lint
 
-# Automated test suite (Node.js test runner via tsx — 20 test files, 133 tests)
+# Automated test suite (Node.js test runner via tsx — 21 test files, 139 tests)
 npm test
 
 # Production Next.js build
@@ -422,28 +422,22 @@ For the full public security overview, see [`docs/security/SECURITY_OVERVIEW.md`
 
 ## Known Limitations
 
-- **Supabase Pairing & Cryptographic Verification Gap**: Live pairing uses Supabase Postgres + Realtime (`lib/pairing/supabase-pairing.ts`) without yet wiring the ECDSA challenge-response flow (`lib/pairing/service.ts`) or storing the partner's SPKI public key—which prevents live Safety Verification (`SafetyVerification.tsx`) from computing a dual-identity HKDF digest on Supabase-paired devices.
-- **Signaling Channel Authentication**: Supabase Realtime broadcast messages on `between-us-call:<coupleId>` validate timestamps, message size, and replay IDs, but rely on `coupleId` secrecy rather than per-message cryptographic signatures.
-- **No Committed SQL Migrations**: Supabase table schemas and RLS policies must currently be created manually in your Supabase project.
-- **Public Fallback TURN Relay**: `lib/webrtc/ice.ts` includes public OpenRelay TURN fallback servers (`openrelay.metered.ca`) for NAT traversal. The HMAC-SHA1 Coturn credential API (`/api/turn/credentials`) is implemented and tested but not yet wired into `AudioCallManager`.
-- **Volatile Push Subscription Store**: `lib/push/push-store.ts` keeps Web Push subscriptions in an in-memory `Map`, and Settings currently registers push subscriptions using device nickname while `AudioCallManager` targets partner fingerprint.
-- **Screen Sharing Policy Restriction**: `next.config.ts` enforces `Permissions-Policy: display-capture=()`, which disables `getDisplayMedia` until updated to `display-capture=(self)`.
-- **Incomplete UI Controls**: Settings notification toggle switches, manual cache-clear buttons, and the pairing page `LanguageSelector` are currently UI-only placeholders; `HomeScreen` does not yet query live partner online presence.
+- **Transport vs. Out-of-Band Verification**: Live Supabase signaling now signs outgoing SDP/ICE/control packets with ECDSA P-256 and verifies pinned partner SPKI keys (`lib/signaling/supabase-signaling.ts`), while users must still compare the symmetric HKDF-SHA256 **Safety Code** out-of-band after pairing to confirm zero initial MITM substitution.
+- **Volatile Push Subscription Store**: `lib/push/push-store.ts` keeps Web Push subscriptions in an in-memory `Map` (protected by SSRF validation, rate limiting, and ECDSA request proofs), so subscriptions reset across serverless cold starts.
+- **Screen Sharing Policy Restriction**: `next.config.ts` intentionally enforces `Permissions-Policy: display-capture=()` by default; enabling desktop screen sharing requires changing it to `display-capture=(self)`.
+- **Incomplete UI Controls**: Local notification preference switches in Settings, manual cache-clear buttons, and the pairing page `LanguageSelector` are currently UI-only placeholders; `HomeScreen` does not yet query live partner online presence.
 - **Competing Manifest Definitions**: `public/manifest.json`, `public/manifest.webmanifest`, and `app/manifest.ts` currently coexist with minor theme-color/description differences (`app/layout.tsx` links `/manifest.json`).
-- **Debug Route Present**: `/pwa-debug` is currently accessible as an unauthenticated diagnostic route.
 
 ---
 
 ## Roadmap
 
-Planned engineering work based on the verified gaps above:
+Planned engineering work based on the verified architecture:
 
-- [ ] Add versioned Supabase SQL migrations and strict Row Level Security (RLS) policies.
-- [ ] Persist remote partner SPKI public keys during pairing and wire mutual ECDSA authentication + live HKDF-SHA256 Safety Verification across Settings and active calls.
-- [ ] Wire `fetchTurnCredentials()` (`/api/turn/credentials`) into `AudioCallManager` for authenticated ephemeral Coturn relay sessions.
-- [ ] Persist Web Push subscriptions cleanly and align `deviceId` identifiers across Settings and `AudioCallManager`.
-- [ ] Consolidate PWA manifest definitions to a single source of truth and gate `/pwa-debug` to development mode only.
+- [ ] Persist Web Push subscriptions in encrypted/scoped durable storage across serverless cold starts.
+- [ ] Consolidate PWA manifest definitions into a single source of truth.
 - [ ] Implement real persistence for Settings notification toggles and `enumerateDevices()` speaker selection where supported.
+- [ ] Add optional live partner presence heartbeat over Supabase Realtime.
 
 ---
 

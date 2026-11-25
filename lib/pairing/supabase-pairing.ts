@@ -16,6 +16,40 @@ export interface IncomingPairingRequest {
   sessionId: string;
   targetDeviceId: string;
   targetDeviceName: string;
+  targetSpkiHex?: string | undefined;
+}
+
+function purgeSensitiveLocalPairingKeys(sessionId: string, codeHash?: string): void {
+  if (typeof localStorage === "undefined") return;
+  try {
+    if (codeHash) {
+      localStorage.removeItem(`between_us_pairing_code_${codeHash}`);
+    }
+    const key = `${LOCAL_STORAGE_KEY_PREFIX}${sessionId}`;
+    const existing = localStorage.getItem(key);
+    if (existing) {
+      const parsed = JSON.parse(existing);
+      if (parsed && typeof parsed === "object" && "rawCode" in parsed) {
+        delete parsed.rawCode;
+        localStorage.setItem(key, JSON.stringify(parsed));
+      }
+    }
+  } catch {}
+}
+
+async function resolveDeviceSpkiHex(deviceId: string): Promise<string> {
+  if (!deviceId) return "";
+  try {
+    const { data } = await supabase
+      .from("device_identities")
+      .select("spki_hex")
+      .eq("id", deviceId)
+      .single();
+    if (data && typeof data.spki_hex === "string") {
+      return data.spki_hex;
+    }
+  } catch {}
+  return "";
 }
 
 const LOCAL_STORAGE_KEY_PREFIX = "between_us_pairing_sess_";
@@ -379,12 +413,13 @@ export async function submitPairingCode(
     status: "REQUESTED",
     targetDeviceId: identity.fingerprint,
     targetDeviceName,
+    targetSpkiHex: identity.spkiHex,
   };
 
   try {
     if (typeof localStorage !== "undefined") {
       localStorage.setItem(`${LOCAL_STORAGE_KEY_PREFIX}${sessionId}`, JSON.stringify(updatedLocal));
-      localStorage.setItem(`between_us_pairing_code_${codeHash}`, JSON.stringify(updatedLocal));
+      localStorage.removeItem(`between_us_pairing_code_${codeHash}`);
     }
   } catch {}
 
@@ -407,6 +442,7 @@ export async function submitPairingCode(
             sessionId,
             targetDeviceId: identity.fingerprint,
             targetDeviceName,
+            targetSpkiHex: identity.spkiHex,
           },
         });
       }
@@ -464,11 +500,19 @@ export async function acceptPairingRequest(
     console.warn("[Pairing] Supabase couple creation fallback:", err);
   }
 
-  // Update local storage
+  // Resolve remote partner SPKI public key from Supabase or local cache
+  let targetSpkiHex = await resolveDeviceSpkiHex(targetDeviceId);
+
+  // Update local storage & scrub rawCode
   try {
     if (typeof localStorage !== "undefined") {
       const existing = localStorage.getItem(`${LOCAL_STORAGE_KEY_PREFIX}${sessionId}`);
       const parsed = existing ? JSON.parse(existing) : {};
+      if (!targetSpkiHex && typeof parsed.targetSpkiHex === "string") {
+        targetSpkiHex = parsed.targetSpkiHex;
+      }
+      const codeHash = typeof parsed.codeHash === "string" ? parsed.codeHash : undefined;
+      delete parsed.rawCode;
       const updated = {
         ...parsed,
         sessionId,
@@ -476,8 +520,10 @@ export async function acceptPairingRequest(
         coupleId,
         targetDeviceId,
         targetDeviceName,
+        initiatorSpkiHex: identity?.spkiHex || "",
       };
       localStorage.setItem(`${LOCAL_STORAGE_KEY_PREFIX}${sessionId}`, JSON.stringify(updated));
+      purgeSensitiveLocalPairingKeys(sessionId, codeHash);
     }
   } catch {}
 
@@ -486,7 +532,14 @@ export async function acceptPairingRequest(
   if (bc) {
     bc.postMessage({
       type: "ACCEPT_PAIRING",
-      payload: { sessionId, coupleId, status: "ACCEPTED", targetDeviceId, targetDeviceName },
+      payload: {
+        sessionId,
+        coupleId,
+        status: "ACCEPTED",
+        targetDeviceId,
+        targetDeviceName,
+        initiatorSpkiHex: identity?.spkiHex || "",
+      },
     });
     bc.close();
   }
@@ -499,18 +552,18 @@ export async function acceptPairingRequest(
         broadcastChan.send({
           type: "broadcast",
           event: "ACCEPT_PAIRING",
-          payload: { coupleId },
+          payload: { coupleId, initiatorSpkiHex: identity?.spkiHex || "" },
         });
       }
     });
   } catch {}
 
-  // Save paired partner locally in IndexedDB / Store
+  // Save paired partner locally in IndexedDB / Store with verified SPKI key
   const record: PairedPartnerRecord = {
     id: "partner_trust",
     partnerPublicIdentity: {
       algorithm: "ECDSA-P256",
-      spkiHex: "",
+      spkiHex: targetSpkiHex,
       fingerprint: targetDeviceId,
       createdAt: Date.now(),
     },
@@ -539,10 +592,13 @@ export async function rejectPairingRequest(sessionId: string): Promise<void> {
       const existing = localStorage.getItem(`${LOCAL_STORAGE_KEY_PREFIX}${sessionId}`);
       if (existing) {
         const parsed = JSON.parse(existing);
+        const codeHash = typeof parsed.codeHash === "string" ? parsed.codeHash : undefined;
+        delete parsed.rawCode;
         localStorage.setItem(
           `${LOCAL_STORAGE_KEY_PREFIX}${sessionId}`,
           JSON.stringify({ ...parsed, status: "REJECTED" })
         );
+        purgeSensitiveLocalPairingKeys(sessionId, codeHash);
       }
     }
   } catch {}
@@ -583,7 +639,8 @@ export function subscribeToPairingResponse(
     coupleId: string,
     targetDeviceId: string,
     initiatorName: string,
-    initiatorDeviceId: string
+    initiatorDeviceId: string,
+    initiatorSpkiHexHint?: string
   ) => {
     if (handled) return;
     handled = true;
@@ -605,11 +662,18 @@ export function subscribeToPairingResponse(
       }
     } catch {}
 
+    let partnerSpkiHex = initiatorSpkiHexHint || "";
+    if (!partnerSpkiHex && partnerDeviceId && partnerDeviceId !== "initiator_partner_device") {
+      partnerSpkiHex = await resolveDeviceSpkiHex(partnerDeviceId);
+    }
+
+    purgeSensitiveLocalPairingKeys(sessionId);
+
     const record: PairedPartnerRecord = {
       id: "partner_trust",
       partnerPublicIdentity: {
         algorithm: "ECDSA-P256",
-        spkiHex: "",
+        spkiHex: partnerSpkiHex,
         fingerprint: partnerDeviceId,
         createdAt: Date.now(),
       },
@@ -753,7 +817,15 @@ export function subscribeToPairingResponse(
     )
     .on("broadcast", { event: "ACCEPT_PAIRING" }, (payload) => {
       if (!handled && payload.payload?.coupleId) {
-        handleAcceptance(payload.payload.coupleId, "", "Partner", "");
+        handleAcceptance(
+          payload.payload.coupleId,
+          "",
+          "Partner",
+          "",
+          typeof payload.payload.initiatorSpkiHex === "string"
+            ? payload.payload.initiatorSpkiHex
+            : undefined
+        );
       }
     })
     .on("broadcast", { event: "REJECT_PAIRING" }, () => {

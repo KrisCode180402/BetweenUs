@@ -13,6 +13,7 @@ import {
 } from "./store";
 import { VerificationStateMachine } from "./state-machine";
 import { DevicePublicIdentity } from "../crypto/identity/types";
+import { getPublicIdentity } from "../crypto/identity";
 import { getPairedPartner } from "../pairing/service";
 
 export class SafetyVerificationManager {
@@ -38,15 +39,26 @@ export class SafetyVerificationManager {
 
   /**
    * Derives deterministic safety representation for any given partner public identity.
+   * Binds both remote and local cryptographic identities symmetrically via HKDF-SHA-256
+   * when local identity is initialized, with graceful hex fingerprint fallback for legacy records.
    */
   public async calculateSafetyRepresentation(
     partnerIdentity: DevicePublicIdentity
   ): Promise<SafetyRepresentation> {
-    if (!partnerIdentity || !partnerIdentity.spkiHex) {
+    const partnerKeyHex = partnerIdentity?.spkiHex || partnerIdentity?.fingerprint || "";
+    if (!partnerIdentity || !partnerKeyHex || !/^[0-9a-f]+$/i.test(partnerKeyHex)) {
       throw new Error("Invalid partner public identity provided for safety representation.");
     }
 
-    const { digestBuffer, digestHex } = await computeSafetyDigest(partnerIdentity.spkiHex);
+    const localIdentity = getPublicIdentity();
+    const localKeyHex = partnerIdentity.spkiHex
+      ? localIdentity?.spkiHex
+      : localIdentity?.fingerprint;
+
+    const { digestBuffer, digestHex } = await computeSafetyDigest(
+      partnerKeyHex,
+      localKeyHex && /^[0-9a-f]+$/i.test(localKeyHex) ? localKeyHex : undefined
+    );
     return deriveSafetyRepresentation(digestBuffer, digestHex);
   }
 
@@ -135,7 +147,11 @@ export class SafetyVerificationManager {
       }
     }
 
-    if (current === VerificationState.PAIRED_UNVERIFIED || current === VerificationState.IDENTITY_CHANGED) {
+    if (
+      current === VerificationState.PAIRED_UNVERIFIED ||
+      current === VerificationState.IDENTITY_CHANGED ||
+      current === VerificationState.VERIFICATION_FAILED
+    ) {
       this.stateMachine.transitionTo(VerificationState.VERIFICATION_PENDING);
     }
 

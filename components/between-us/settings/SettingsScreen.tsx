@@ -5,7 +5,9 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { loadPairedPartner } from "@/lib/pairing/partner-store";
 import { removePairedPartnerDevice } from "@/lib/pairing/service";
-import { getPublicIdentity } from "@/lib/crypto/identity";
+import { getPublicIdentity, initializeDeviceIdentity } from "@/lib/crypto/identity";
+import { initializeSafetySession } from "@/lib/safety/service";
+import { VerificationState } from "@/lib/safety/types";
 import { getItem, setItem } from "@/lib/storage/repository";
 import { pushManager, PushPermissionStatus } from "@/lib/push/push-manager";
 import { requestMediaPermissions } from "@/lib/permissions/media-permissions";
@@ -23,11 +25,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 }) => {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<SettingsTabType>(initialTab);
-  const [isPaired, setIsPaired] = useState<boolean>(true);
+  const [isPaired, setIsPaired] = useState<boolean>(false);
+  const [isSafetyVerified, setIsSafetyVerified] = useState<boolean>(false);
   const [partnerName, setPartnerName] = useState<string>("Partner");
   const [myDeviceName, setMyDeviceName] = useState<string>("My Device");
   const [myFingerprint, setMyFingerprint] = useState<string>("ECDSA-P256-AUTHENTICATED");
-  const [safetyCode] = useState<string>("8F4A - 29C1 - 77B9 - D03E");
+  const [safetyCode, setSafetyCode] = useState<string>("PAIR DEVICE TO GENERATE");
   const [copiedCode, setCopiedCode] = useState(false);
   const [testMessage, setTestMessage] = useState<string | null>(null);
 
@@ -74,9 +77,21 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           setIsPaired(false);
         }
 
-        const pubId = getPublicIdentity();
+        const pubId = getPublicIdentity() || (await initializeDeviceIdentity().catch(() => null));
         if (pubId?.fingerprint) {
           setMyFingerprint(pubId.fingerprint);
+        }
+
+        if (partner) {
+          try {
+            const safetyState = await initializeSafetySession(partner.partnerPublicIdentity);
+            if (safetyState.representation?.shortCode) {
+              setSafetyCode(safetyState.representation.shortCode.replace(/-/g, " - "));
+            }
+            setIsSafetyVerified(safetyState.state === VerificationState.VERIFIED);
+          } catch {
+            setSafetyCode("UNAVAILABLE");
+          }
         }
 
         const storedDeviceName = await getItem<string>("device_nickname");
@@ -129,14 +144,18 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const handleTogglePush = async () => {
     setIsSubscribing(true);
     setTestMessage(null);
+    const targetId =
+      myFingerprint && myFingerprint !== "ECDSA-P256-AUTHENTICATED"
+        ? myFingerprint
+        : myDeviceName;
     try {
       if (pushEnabled) {
-        await pushManager.disableNotifications(myDeviceName);
+        await pushManager.disableNotifications(targetId);
         setPushEnabled(false);
         setPushStatus(pushManager.getPermissionState());
         setTestMessage("Push notifications disabled.");
       } else {
-        const res = await pushManager.enableNotifications(myDeviceName);
+        const res = await pushManager.enableNotifications(targetId);
         if (res.success) {
           setPushEnabled(true);
           setPushStatus("granted");
@@ -502,7 +521,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
               <div className="flex justify-between px-2 py-1 text-[11px] border-t border-slate-800 pt-3">
                 <span className="text-slate-400">Pairing State:</span>
-                <span className="text-emerald-400 font-bold">Paired & Verified</span>
+                <span className={isPaired ? (isSafetyVerified ? "text-emerald-400 font-bold" : "text-amber-300 font-bold") : "text-slate-400 font-bold"}>
+                  {isPaired ? (isSafetyVerified ? "Paired & Verified" : "Paired · Ready to Verify") : "Not Paired"}
+                </span>
               </div>
             </div>
 

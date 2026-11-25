@@ -3,6 +3,27 @@
  * Handles ServiceWorker registration, VAPID subscription, and Push API interactions.
  */
 
+import { getPublicIdentity, signDataWithIdentity } from "../crypto/identity";
+import { bufferToHex } from "../crypto/identity/key-gen";
+import { buildPushAuthPayload, PushRequestProof } from "./push-security";
+
+async function createPushProof(action: string, targetId: string): Promise<PushRequestProof | undefined> {
+  try {
+    const pub = getPublicIdentity();
+    if (!pub?.spkiHex) return undefined;
+    const timestamp = Date.now();
+    const payloadBytes = buildPushAuthPayload(action, targetId, timestamp);
+    const sigBuffer = await signDataWithIdentity(payloadBytes);
+    return {
+      timestamp,
+      spkiHex: pub.spkiHex,
+      signatureHex: bufferToHex(sigBuffer),
+    };
+  } catch {
+    return undefined;
+  }
+}
+
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -96,6 +117,7 @@ export class PushManager {
 
       // 5. Send subscription info to server
       const subJson = subscription.toJSON();
+      const proof = await createPushProof('subscribe', deviceId);
       const subRes = await fetch('/api/push/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -103,6 +125,7 @@ export class PushManager {
           deviceId,
           subscription: subJson,
           action: 'subscribe',
+          ...(proof ? { proof } : {}),
         }),
       });
 
@@ -128,12 +151,14 @@ export class PushManager {
         await subscription.unsubscribe();
       }
 
+      const proof = await createPushProof('unsubscribe', deviceId);
       await fetch('/api/push/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           deviceId,
           action: 'unsubscribe',
+          ...(proof ? { proof } : {}),
         }),
       });
 
@@ -177,6 +202,7 @@ export class PushManager {
     callerName?: string
   ): Promise<boolean> {
     try {
+      const proof = await createPushProof('send', targetDeviceId);
       const res = await fetch('/api/push/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -186,6 +212,7 @@ export class PushManager {
           callType,
           callerName: callerName || 'Partner',
           expiresAt: Date.now() + 45000,
+          ...(proof ? { proof } : {}),
         }),
       });
       return res.ok;

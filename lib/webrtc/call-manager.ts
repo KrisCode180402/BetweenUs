@@ -9,7 +9,8 @@ import {
 import { CallStateMachine } from "./call-state-machine";
 import { PeerConnectionManager } from "./peer-connection";
 import { SupabaseSignalingClient, SupabaseSignalingPayload } from "../signaling/supabase-signaling";
-import { buildRtcConfiguration } from "./ice";
+import { buildRtcConfiguration, getDefaultIceServers } from "./ice";
+import { fetchTurnCredentials } from "../turn/client";
 import { getPairedPartner } from "../pairing";
 import { initializeDeviceIdentity, getPublicIdentity } from "../crypto/identity";
 import { cleanupCallSession } from "./cleanup";
@@ -59,6 +60,7 @@ export class AudioCallManager {
 
   private coupleId: string = "default-couple";
   private localUserId: string = "local-user";
+  private partnerSpkiHex: string = "";
   private bufferedIceCandidates: RTCIceCandidateInit[] = [];
   private bufferedSdpOffer: string = "";
 
@@ -150,6 +152,10 @@ export class AudioCallManager {
     const partnerFingerprint =
       pairedPartner?.partnerPublicIdentity?.fingerprint ||
       this.options.partnerIdentity?.fingerprint;
+    this.partnerSpkiHex =
+      pairedPartner?.partnerPublicIdentity?.spkiHex ||
+      this.options.partnerIdentity?.spkiHex ||
+      "";
 
     const storedCoupleId = (pairedPartner as any)?.coupleId;
     if (storedCoupleId) {
@@ -250,10 +256,36 @@ export class AudioCallManager {
           console.warn("Background signaling connection notice while idle:", err);
         }
       },
-    });
+    }, this.partnerSpkiHex || undefined);
 
     await this.supabaseSignaling.subscribe();
     return this.supabaseSignaling;
+  }
+
+  /**
+   * Resolves RTCConfiguration, preferring short-lived HMAC-SHA1 TURN credentials
+   * from `/api/turn/credentials` in browser runtime before falling back to defaults.
+   */
+  private async resolveRtcConfiguration(): Promise<RTCConfiguration> {
+    if (this.options.rtcConfig?.iceServers) {
+      return buildRtcConfiguration(this.options.rtcConfig.iceServers);
+    }
+
+    if (typeof window !== "undefined" && this.options.enableTurnRelay !== false) {
+      try {
+        const endpoint = this.options.turnApiEndpoint || "/api/turn/credentials";
+        const fetched = await Promise.race([
+          fetchTurnCredentials(endpoint, this.localUserId),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500)),
+        ]);
+        if (fetched && fetched.length > 0) {
+          const merged = [...fetched, ...getDefaultIceServers()];
+          return buildRtcConfiguration(merged);
+        }
+      } catch {}
+    }
+
+    return buildRtcConfiguration();
   }
 
   /**
@@ -276,8 +308,8 @@ export class AudioCallManager {
     this.startInitiationTimeout();
 
     try {
-      // 1. Setup ICE Configuration with STUN/TURN
-      const rtcConfig = buildRtcConfiguration(this.options.rtcConfig?.iceServers);
+      // 1. Setup ICE Configuration with ephemeral TURN + STUN fallback
+      const rtcConfig = await this.resolveRtcConfiguration();
 
       // 2. Initialize PeerConnectionManager
       this.pcManager = new PeerConnectionManager(rtcConfig, this.options.audioSettings);
@@ -406,7 +438,7 @@ export class AudioCallManager {
           console.warn("Background signaling connection notice while listening:", err);
         }
       },
-    });
+    }, this.partnerSpkiHex || undefined);
 
     await this.supabaseSignaling.subscribe();
   }
@@ -452,7 +484,7 @@ export class AudioCallManager {
     const callType = this.incomingInvitation?.callType || this.getCallType();
 
     try {
-      const rtcConfig = buildRtcConfiguration(this.options.rtcConfig?.iceServers);
+      const rtcConfig = await this.resolveRtcConfiguration();
       this.pcManager = new PeerConnectionManager(rtcConfig, this.options.audioSettings);
 
       await this.pcManager.initializePeerConnection(

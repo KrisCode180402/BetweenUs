@@ -49,6 +49,23 @@ export async function computePublicKeyFingerprint(spkiBuffer: ArrayBuffer): Prom
 }
 
 /**
+ * Imports an SPKI hex string into a Web Crypto ECDSA P-256 public CryptoKey.
+ */
+export async function importPublicKeyFromSpkiHex(spkiHex: string): Promise<CryptoKey> {
+  const subtle = getSubtleCrypto();
+  return subtle.importKey(
+    "spki",
+    hexToBuffer(spkiHex),
+    {
+      name: "ECDSA",
+      namedCurve: "P-256",
+    },
+    false,
+    ["verify"]
+  );
+}
+
+/**
  * Generates a new local ECDSA P-256 key pair with a non-extractable private key.
  */
 export async function generateDeviceKeyPair(): Promise<IdentityRecord> {
