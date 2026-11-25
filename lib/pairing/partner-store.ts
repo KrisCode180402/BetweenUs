@@ -4,8 +4,17 @@ import { getUnifiedDatabase, STORES, withStorageTimeout, isIndexedDBSupported } 
 const RECORD_ID = "partner_trust";
 let memoryPartnerRecord: PairedPartnerRecord | null = null;
 
+function notifyPairingChanged(): void {
+  if (typeof window !== "undefined" && typeof window.dispatchEvent === "function") {
+    try {
+      window.dispatchEvent(new Event("between-us:pairing-updated"));
+    } catch {}
+  }
+}
+
 export async function savePairedPartner(record: PairedPartnerRecord): Promise<boolean> {
   memoryPartnerRecord = record;
+  notifyPairingChanged();
   if (!isIndexedDBSupported()) {
     return true;
   }
@@ -59,6 +68,7 @@ export async function loadPairedPartner(): Promise<PairedPartnerRecord | null> {
 
 export async function removePairedDevice(): Promise<boolean> {
   memoryPartnerRecord = null;
+  notifyPairingChanged();
   if (!isIndexedDBSupported()) {
     return true;
   }

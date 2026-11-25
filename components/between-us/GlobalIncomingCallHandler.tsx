@@ -44,11 +44,14 @@ export const GlobalIncomingCallHandler: React.FC = () => {
     }
   }, []);
 
+  const activeCoupleIdRef = useRef<string | null>(null);
+
   const setupListener = useCallback(async () => {
     if (isCallPage) {
       if (callManagerRef.current) {
         callManagerRef.current.stopListener();
         callManagerRef.current = null;
+        activeCoupleIdRef.current = null;
       }
       return;
     }
@@ -56,7 +59,25 @@ export const GlobalIncomingCallHandler: React.FC = () => {
     try {
       await initializeDeviceIdentity();
       const partner = await loadPairedPartner();
-      if (!partner) return;
+      if (!partner) {
+        if (callManagerRef.current) {
+          callManagerRef.current.stopListener();
+          callManagerRef.current = null;
+          activeCoupleIdRef.current = null;
+        }
+        return;
+      }
+
+      const nextCoupleId =
+        (partner as any).coupleId ||
+        partner.partnerPublicIdentity?.fingerprint ||
+        "default-couple";
+
+      if (callManagerRef.current && activeCoupleIdRef.current !== nextCoupleId) {
+        callManagerRef.current.stopListener();
+        callManagerRef.current = null;
+      }
+      activeCoupleIdRef.current = nextCoupleId;
 
       const name =
         (partner as any).partnerName ||
@@ -138,21 +159,30 @@ export const GlobalIncomingCallHandler: React.FC = () => {
       }
     };
 
+    const handlePairingUpdated = () => {
+      if (!isCallPage && isSubscribed) {
+        setupListener();
+      }
+    };
+
     window.addEventListener("visibilitychange", handleVisibilityOrOnline);
     window.addEventListener("online", handleVisibilityOrOnline);
+    window.addEventListener("between-us:pairing-updated", handlePairingUpdated);
 
     return () => {
       isSubscribed = false;
       window.removeEventListener("visibilitychange", handleVisibilityOrOnline);
       window.removeEventListener("online", handleVisibilityOrOnline);
+      window.removeEventListener("between-us:pairing-updated", handlePairingUpdated);
       if (callManagerRef.current) {
         callManagerRef.current.stopListener();
         callManagerRef.current = null;
+        activeCoupleIdRef.current = null;
       }
     };
-  }, [isCallPage, setupListener]);
+  }, [pathname, isCallPage, setupListener]);
 
-  const handleAccept = () => {
+  const handleAccept = async () => {
     if (!incomingCall) return;
     ringtoneManager.stopAll();
     const callType = incomingCall.callType || "audio";
@@ -160,8 +190,10 @@ export const GlobalIncomingCallHandler: React.FC = () => {
     setIncomingCall(null);
 
     if (callManagerRef.current) {
-      callManagerRef.current.stopListener();
+      const prev = callManagerRef.current;
       callManagerRef.current = null;
+      activeCoupleIdRef.current = null;
+      await prev.stopListener();
     }
 
     const targetRoute =

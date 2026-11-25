@@ -222,6 +222,20 @@ export class SupabaseSignalingClient {
       await this.unsubscribe();
     }
 
+    // Purge any stale closed/errored channels for the same topic before subscribing
+    try {
+      const existing = supabase.getChannels();
+      for (const ch of existing) {
+        if (
+          ch !== this.channel &&
+          (ch.topic === `realtime:${this.channelName}` || ch.topic === this.channelName) &&
+          ((ch as any).state === "closed" || (ch as any).state === "errored")
+        ) {
+          await supabase.removeChannel(ch);
+        }
+      }
+    } catch {}
+
     this.channel = supabase.channel(this.channelName, {
       config: {
         broadcast: { self: false, ack: true },
@@ -359,13 +373,14 @@ export class SupabaseSignalingClient {
    * Unsubscribes and cleans up the Realtime channel subscription.
    */
   public async unsubscribe(): Promise<void> {
-    if (this.channel) {
+    const ch = this.channel;
+    this.channel = null;
+    this.isSubscribed = false;
+    if (ch) {
       try {
-        await this.channel.unsubscribe();
-        await supabase.removeChannel(this.channel);
+        await ch.unsubscribe();
+        await supabase.removeChannel(ch);
       } catch {}
-      this.channel = null;
-      this.isSubscribed = false;
     }
   }
 }

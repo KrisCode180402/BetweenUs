@@ -80,25 +80,25 @@ CREATE POLICY "device_identities_update_valid"
 
 CREATE POLICY "pairing_sessions_select_recent"
   ON public.pairing_sessions FOR SELECT TO anon, authenticated
-  USING (expires_at > now() - interval '15 minutes');
+  USING (expires_at > now() - interval '24 hours');
 
 CREATE POLICY "pairing_sessions_insert_pending"
   ON public.pairing_sessions FOR INSERT TO anon, authenticated
   WITH CHECK (
     status = 'PENDING'
     AND length(pairing_code_hash) = 64
-    AND expires_at > now()
-    AND expires_at <= now() + interval '15 minutes'
+    AND expires_at > now() - interval '1 hour'
+    AND expires_at <= now() + interval '24 hours'
   );
 
 CREATE POLICY "pairing_sessions_update_active"
   ON public.pairing_sessions FOR UPDATE TO anon, authenticated
-  USING (status IN ('PENDING', 'REQUESTED') AND expires_at > now())
+  USING (status IN ('PENDING', 'REQUESTED') AND expires_at > now() - interval '1 hour')
   WITH CHECK (status IN ('REQUESTED', 'ACCEPTED', 'REJECTED', 'EXPIRED'));
 
 CREATE POLICY "couples_select_recent"
   ON public.couples FOR SELECT TO anon, authenticated
-  USING (created_at > now() - interval '1 hour');
+  USING (created_at > now() - interval '24 hours');
 
 CREATE POLICY "couples_insert_valid"
   ON public.couples FOR INSERT TO anon, authenticated
@@ -106,7 +106,7 @@ CREATE POLICY "couples_insert_valid"
 
 CREATE POLICY "couple_members_select_recent"
   ON public.couple_members FOR SELECT TO anon, authenticated
-  USING (joined_at > now() - interval '1 hour');
+  USING (joined_at > now() - interval '24 hours');
 
 CREATE POLICY "couple_members_insert_valid"
   ON public.couple_members FOR INSERT TO anon, authenticated

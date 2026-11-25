@@ -548,8 +548,13 @@ export class AudioCallManager {
         }
       }
 
-      this.dispatchEvent(CallEvent.SDP_EXCHANGE);
-      this.startConnectionTimeout();
+      if (this.pcManager?.getPeerConnection()?.connectionState === "connected") {
+        this.clearAllTimers();
+        this.dispatchEvent(CallEvent.ICE_CONNECTED);
+      } else if (this.stateMachine.getState() !== CallState.CONNECTED) {
+        this.dispatchEvent(CallEvent.SDP_EXCHANGE);
+        this.startConnectionTimeout();
+      }
     } catch (err: any) {
       this.handleFailure(err.message || `Failed to accept incoming ${callType} call.`);
     }
@@ -607,8 +612,13 @@ export class AudioCallManager {
         }
       }
 
-      this.dispatchEvent(CallEvent.SDP_EXCHANGE);
-      this.startConnectionTimeout();
+      if (this.pcManager?.getPeerConnection()?.connectionState === "connected") {
+        this.clearAllTimers();
+        this.dispatchEvent(CallEvent.ICE_CONNECTED);
+      } else if (this.stateMachine.getState() !== CallState.CONNECTED) {
+        this.dispatchEvent(CallEvent.SDP_EXCHANGE);
+        this.startConnectionTimeout();
+      }
     } catch (err: any) {
       this.handleFailure("Failed to apply remote SDP answer.");
     }
@@ -710,11 +720,14 @@ export class AudioCallManager {
     return null;
   }
 
-  public stopListener(): void {
+  public async stopListener(): Promise<void> {
     ringtoneManager.stopAll();
-    if (this.supabaseSignaling) {
-      this.supabaseSignaling.unsubscribe().catch(() => {});
-      this.supabaseSignaling = null;
+    const sig = this.supabaseSignaling;
+    this.supabaseSignaling = null;
+    if (sig) {
+      try {
+        await sig.unsubscribe();
+      } catch {}
     }
   }
 
@@ -859,6 +872,35 @@ export class AudioCallManager {
     wakeLockManager.release().catch(() => {});
     callSessionStore.clearActiveSession();
 
+    // Emit terminal ENDED state BEFORE cleanupCallSession resets stateMachine to IDLE
+    const state = this.stateMachine.getState();
+    if (
+      state === CallState.ENDING ||
+      state === CallState.CONNECTED ||
+      state === CallState.CONNECTING ||
+      state === CallState.RECONNECTING ||
+      state === CallState.NEGOTIATING ||
+      state === CallState.ACCEPTING ||
+      state === CallState.OUTGOING_RINGING ||
+      state === CallState.INCOMING_RINGING ||
+      state === CallState.CALLING ||
+      state === CallState.RINGING
+    ) {
+      try {
+        this.setState(CallState.ENDING);
+        this.setState(CallState.ENDED);
+      } catch {}
+    } else if (
+      state === CallState.FAILED ||
+      state === CallState.TIMED_OUT ||
+      state === CallState.REJECTED ||
+      state === CallState.CANCELLED
+    ) {
+      try {
+        this.setState(CallState.ENDED);
+      } catch {}
+    }
+
     if (this.pcManager) {
       const pc = this.pcManager.getPeerConnection();
       const localStream = this.pcManager.getLocalStream();
@@ -888,35 +930,6 @@ export class AudioCallManager {
     }
 
     this.incomingInvitation = null;
-
-    const state = this.stateMachine.getState();
-    if (
-      state === CallState.ENDING ||
-      state === CallState.CONNECTED ||
-      state === CallState.CONNECTING ||
-      state === CallState.RECONNECTING ||
-      state === CallState.NEGOTIATING ||
-      state === CallState.ACCEPTING ||
-      state === CallState.OUTGOING_RINGING ||
-      state === CallState.INCOMING_RINGING ||
-      state === CallState.CALLING ||
-      state === CallState.RINGING
-    ) {
-      try {
-        this.setState(CallState.ENDING);
-        this.setState(CallState.ENDED);
-      } catch {}
-    } else if (
-      state === CallState.FAILED ||
-      state === CallState.TIMED_OUT ||
-      state === CallState.REJECTED ||
-      state === CallState.CANCELLED
-    ) {
-      try {
-        this.setState(CallState.ENDED);
-      } catch {}
-    }
-
     this.stateMachine.reset();
   }
 }
