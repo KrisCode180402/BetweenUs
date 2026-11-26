@@ -2,6 +2,8 @@
 
 **Between Us** is a private, end to end encrypted audio and video calling Progressive Web Application (PWA) built with Next.js, React, TypeScript, WebRTC, Web Crypto, and Supabase Realtime.
 
+Integrated WebRTC for real-time audio/video streaming, Supabase Realtime for signaling, and STUN/TURN for network connectivity
+
 It is designed around a single focused purpose: direct, low-friction voice and video communication between two paired devices, without user accounts, social feeds, messaging threads, call history databases, call recording, or third-party analytics.
 
 ---
